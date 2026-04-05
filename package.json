@@ -1,0 +1,14 @@
+{
+  "name": "sistema-avisos-navegacion-gps-https",
+  "version": "1.0.0",
+  "description": "Sistema de avisos en la navegación con HTTPS, Express y Socket.IO",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  }
+}

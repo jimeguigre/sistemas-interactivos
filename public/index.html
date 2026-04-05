@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <!-- Configuración básica del documento -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Sistema de avisos en la navegación</title>
+
+  <!-- Hojas de estilo externas para Leaflet y el cálculo visual de rutas -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+
+  <style>
+    /* Variables globales de color y espaciado para mantener una estética uniforme */
+    :root {
+      --fondo: #111827;
+      --panel: rgba(17, 24, 39, 0.96);
+      --panel2: rgba(31, 41, 55, 0.96);
+      --borde: #374151;
+      --texto: #ffffff;
+      --texto-suave: #cbd5e1;
+      --azul: #2563eb;
+      --rojo: #dc2626;
+      --verde: #0f766e;
+      --amarillo: #f59e0b;
+      --sombra: 0 10px 30px rgba(0, 0, 0, 0.35);
+      --radio: 14px;
+      --espacio: 10px;
+    }
+
+    /* Reset básico para evitar diferencias entre navegadores */
+    * { box-sizing: border-box; }
+
+    /* La app ocupa toda la pantalla y evita scroll para parecer una app móvil */
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      background: var(--fondo);
+      color: var(--texto);
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Cabecera superior con título, controles y barra principal */
+    header {
+      position: relative;
+      z-index: 1200;
+      padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px 10px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--borde);
+      backdrop-filter: blur(10px);
+    }
+
+    /* Fila superior con privacidad, título, ayuda y pantalla completa */
+    .cabecera-superior {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    /* Bloque central para mantener juntos el título y salir de conducción */
+    .bloque-titulo-conduccion {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    /* Título principal de la app */
+    .titulo-principal {
+      flex: 0 1 auto;
+      text-align: center;
+      font-size: 1rem;
+      font-weight: 700;
+      line-height: 1.2;
+      margin: 0;
+      padding: 0 4px;
+    }
+
+    /* Botones redondos tipo icono usados en cabecera y modal */
+    .boton-icono {
+      width: 38px;
+      height: 38px;
+      border: 1px solid #475569;
+      border-radius: 999px;
+      background: #0f172a;
+      color: white;
+      font-size: 17px;
+      padding: 0;
+      flex: 0 0 auto;
+      cursor: pointer;
+    }
+
+    /* Botón específico para salir del modo conducción */
+    .boton-salir-cabecera {
+      background: #b91c1c;
+      color: white;
+      font-weight: 700;
+      white-space: nowrap;
+      padding: 9px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      flex: 0 0 auto;
+      border: none;
+      cursor: pointer;
+    }
+
+    /* Barra principal de trabajo: destino + crear ruta + empezar + avisos */
+    .barra-herramientas {
+      display: grid;
+      grid-template-columns: minmax(220px, 1.9fr) repeat(3, minmax(110px, 1fr));
+      gap: var(--espacio);
+      align-items: center;
+    }
+
+    /* Estilo común de inputs y botones */
+    input, button {
+      border: none;
+      border-radius: 12px;
+      padding: 11px 12px;
+      font-size: 14px;
+      min-width: 0;
+    }
+
+    input {
+      width: 100%;
+      background: #f8fafc;
+      color: #111827;
+    }
+
+    button {
+      background: var(--azul);
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* Caja relativa para anclar el panel desplegable de "Tus avisos" */
+    #cajaMisAvisos {
+      position: relative;
+      min-width: 0;
+    }
+
+    #botonMisAvisos {
+      width: 100%;
+      white-space: nowrap;
+    }
+
+    /* Barras informativas bajo la cabecera */
+    #barraCompacta,
+    #estadoSensores,
+    #estadoGeneral {
+      text-align: center;
+      padding: 8px 12px;
+      font-size: 13px;
+    }
+
+    /* Barra compacta usada durante la conducción para ahorrar espacio */
+    #barraCompacta {
+      display: none;
+      background: #0f172a;
+      color: #e5e7eb;
+      font-weight: 700;
+      border-bottom: 1px solid var(--borde);
+    }
+
+    /* Resumen de sensores activos fuera del modo conducción */
+    #estadoSensores {
+      background: #111827;
+      color: var(--texto-suave);
+      min-height: 34px;
+      border-bottom: 1px solid rgba(55, 65, 81, 0.55);
+    }
+
+    /* Estado general de la aplicación */
+    #estadoGeneral {
+      background: #374151;
+      color: white;
+      min-height: 38px;
+      font-weight: 700;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    /* El mapa ocupa el resto de la pantalla */
+    #mapa {
+      width: 100%;
+      height: calc(100dvh - 185px);
+      flex: 1;
+    }
+
+    /* Se oculta el panel textual de Leaflet Routing porque no interesa mostrarlo */
+    .contenedor-routing-leaflet { display: none; }
+
+    /* Utilidad general para ocultar elementos desde JS */
+    .oculto { display: none !important; }
+
+    /* Marcador HTML del usuario */
+    .marcador-usuario {
+      background: var(--verde);
+      color: white;
+      border: 2px solid white;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: bold;
+      white-space: nowrap;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Marcador HTML de aviso */
+    .marcador-aviso {
+      background: var(--rojo);
+      color: white;
+      border: 2px solid white;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: bold;
+      white-space: nowrap;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Estilo compartido para paneles flotantes */
+    #panelAyuda,
+    #panelPrivacidad,
+    #panelMisAvisos {
+      position: absolute;
+      background: var(--panel2);
+      border: 1px solid #475569;
+      border-radius: var(--radio);
+      box-shadow: var(--sombra);
+      z-index: 2000;
+      overflow-y: auto;
+      backdrop-filter: blur(12px);
+    }
+
+    /* Paneles laterales de ayuda y privacidad */
+    #panelAyuda,
+    #panelPrivacidad {
+      top: calc(env(safe-area-inset-top, 0px) + 52px);
+      width: min(380px, 92vw);
+      max-height: min(72dvh, 540px);
+      padding: 16px;
+      display: none;
+    }
+
+    #panelPrivacidad { left: 12px; }
+    #panelAyuda { right: 12px; }
+
+    /* Panel desplegable de avisos propios */
+    #panelMisAvisos {
+      top: calc(100% + 8px);
+      right: 0;
+      width: min(390px, 92vw);
+      max-height: min(48dvh, 320px);
+      padding: 10px;
+    }
+
+    #panelAyuda h3,
+    #panelPrivacidad h3 {
+      margin: 0 0 12px 0;
+      font-size: 16px;
+    }
+
+    #panelAyuda p,
+    #panelPrivacidad p,
+    #panelPrivacidad label {
+      margin: 8px 0;
+      color: #d1d5db;
+      font-size: 14px;
+      line-height: 1.45;
+      display: block;
+    }
+
+    /* Botón pequeño de cierre para paneles */
+    .boton-cerrar {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      padding: 0;
+      background: #374151;
+      border: 1px solid #64748b;
+      color: white;
+      cursor: pointer;
+    }
+
+    /* Fila con checkbox y etiqueta de permiso */
+    .fila-privacidad {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 10px 0;
+    }
+
+    .fila-privacidad input {
+      width: auto;
+      min-width: 0;
+    }
+
+    /* Bloque superior con acciones relacionadas con somnolencia */
+    .bloque-somnolencia-acciones {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #334155;
+    }
+
+    .boton-somnolencia-ver {
+      width: 100%;
+      background: #1d4ed8;
+    }
+
+    .boton-somnolencia-encender {
+      width: 100%;
+      background: #0f766e;
+    }
+
+    .boton-somnolencia-apagar {
+      width: 100%;
+      background: #b91c1c;
+    }
+
+    /* Tarjeta individual de cada aviso propio */
+    .item-aviso {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 8px;
+      border-bottom: 1px solid #334155;
+    }
+
+    .item-aviso:last-child { border-bottom: none; }
+
+    .info-aviso {
+      font-size: 13px;
+      line-height: 1.45;
+      color: #e5e7eb;
+    }
+
+    .boton-borrar-aviso {
+      background: #b91c1c;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      font-weight: bold;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .sin-avisos {
+      color: #cbd5e1;
+      font-size: 13px;
+      padding: 8px;
+    }
+
+    .nota {
+      color: #94a3b8;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    /* Pantalla de bloqueo cuando la orientación es vertical */
+    #bloqueoOrientacion {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(2, 6, 23, 0.96);
+      color: white;
+      text-align: center;
+    }
+
+    .tarjetaOrientacion {
+      width: min(520px, 92vw);
+      padding: 24px;
+      border-radius: 18px;
+      border: 1px solid #334155;
+      background: #111827;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.45);
+    }
+
+    .tarjetaOrientacion h2 {
+      margin: 0 0 12px 0;
+      font-size: 1.2rem;
+    }
+
+    .tarjetaOrientacion p {
+      margin: 8px 0;
+      color: #cbd5e1;
+      line-height: 1.5;
+    }
+
+    #bloqueoOrientacion.visible {
+      display: flex;
+    }
+
+    /* Modal del detector de somnolencia */
+    #modalSomnolencia {
+      position: fixed;
+      inset: 0;
+      z-index: 5000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.28);
+      backdrop-filter: blur(4px);
+    }
+
+    #modalSomnolencia.abierto {
+      display: flex;
+    }
+
+    /* Ventana principal del detector */
+    .ventanaSomnolencia {
+      width: min(1120px, 96vw);
+      height: min(760px, 88dvh);
+      background: var(--panel2);
+      border: 1px solid #475569;
+      border-radius: 18px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.45);
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    /* Cabecera del modal del detector */
+    .cabeceraSomnolencia {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      border-bottom: 1px solid #334155;
+      background: rgba(15, 23, 42, 0.92);
+    }
+
+    .tituloSomnolencia {
+      flex: 1;
+      text-align: center;
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    /* Zona principal con vídeo a la izquierda e información a la derecha */
+    .cuerpoSomnolencia {
+      display: grid;
+      grid-template-columns: minmax(360px, 2fr) minmax(280px, 1fr);
+      gap: 14px;
+      padding: 14px;
+      min-height: 0;
+    }
+
+    .tarjetaCamara,
+    .tarjetaInfo {
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid #334155;
+      border-radius: 14px;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    /* Contenedor relativo para superponer vídeo y canvas */
+    .contenedorCamara {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      min-height: 320px;
+      background: black;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* El canvas se coloca encima del vídeo para pintar landmarks */
+    #camaraSomnolencia,
+    #lienzoSomnolencia {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .tarjetaInfo {
+      padding: 16px;
+      overflow-y: auto;
+    }
+
+    .tarjetaInfo h3 {
+      margin: 0 0 14px 0;
+      font-size: 1rem;
+    }
+
+    /* Estado visual del detector */
+    .estadoSomnolencia {
+      margin: 0 0 14px 0;
+      padding: 12px 14px;
+      border-radius: 12px;
+      font-weight: 700;
+      text-align: center;
+      background: #1e293b;
+      border: 1px solid #334155;
+    }
+
+    /* Filas con métricas del detector */
+    .filaMetrica {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid #334155;
+      font-size: 14px;
+    }
+
+    .filaMetrica:last-child {
+      border-bottom: none;
+    }
+
+    .ok { color: #10b981; }
+    .warning { color: #ffd166; }
+    .alerta { color: #ff6b6b; }
+
+    .pista {
+      margin-top: 14px;
+      color: var(--texto-suave);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    /* Ajustes para pantallas algo más pequeñas pero manteniendo horizontal */
+    @media (max-width: 1100px) and (orientation: landscape) {
+      .barra-herramientas {
+        grid-template-columns: minmax(180px, 1.8fr) repeat(3, minmax(92px, 1fr));
+        gap: 8px;
+      }
+
+      input, button {
+        padding: 9px 10px;
+        font-size: 12px;
+        border-radius: 10px;
+      }
+
+      #mapa {
+        height: calc(100dvh - 170px);
+      }
+
+      .ventanaSomnolencia {
+        width: min(1020px, 96vw);
+        height: min(84dvh, 720px);
+      }
+
+      .cuerpoSomnolencia {
+        grid-template-columns: minmax(300px, 2fr) minmax(250px, 1fr);
+      }
+    }
+
+    /* Si el móvil está en vertical, se fuerza la pantalla de bloqueo */
+    @media (orientation: portrait) {
+      #bloqueoOrientacion {
+        display: flex;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Bloqueo visual para obligar al usuario a usar la app en horizontal -->
+  <div id="bloqueoOrientacion">
+    <div class="tarjetaOrientacion">
+      <h2>Usa la app en horizontal</h2>
+      <p>Esta versión está preparada para móvil apaisado para evitar fallos de cámara y de interfaz.</p>
+      <p>Gira el dispositivo para continuar.</p>
+    </div>
+  </div>
+
+  <header>
+    <!-- Fila superior con accesos rápidos y título -->
+    <div class="cabecera-superior">
+      <button id="botonPrivacidad" class="boton-icono">☰</button>
+
+      <div class="bloque-titulo-conduccion">
+        <h1 class="titulo-principal">Sistema de avisos en la navegación</h1>
+        <button id="botonSalirConduccion" class="boton-salir-cabecera oculto">Salir de conducción</button>
+      </div>
+
+      <button id="botonAyuda" class="boton-icono">?</button>
+      <button id="botonPantallaCompleta" class="boton-icono" type="button">⛶</button>
+    </div>
+
+    <!-- Panel lateral de privacidad, permisos y somnolencia -->
+    <div id="panelPrivacidad">
+      <button id="cerrarPrivacidad" class="boton-cerrar">×</button>
+
+      <!-- Controles del detector de somnolencia -->
+      <div class="bloque-somnolencia-acciones">
+        <button id="verSomnolencia" class="boton-somnolencia-ver">Ver detector</button>
+        <button id="encenderSomnolencia" class="boton-somnolencia-encender">Encender detector</button>
+        <button id="apagarSomnolencia" class="boton-somnolencia-apagar">Apagar detector</button>
+      </div>
+
+      <h3>Privacidad y control</h3>
+
+      <!-- Casillas para permisos del sistema -->
+      <div class="fila-privacidad">
+        <input type="checkbox" id="usarMicrofono" />
+        <label for="usarMicrofono">Usar micrófono</label>
+      </div>
+
+      <div class="fila-privacidad">
+        <input type="checkbox" id="usarUbicacion" />
+        <label for="usarUbicacion">Usar ubicación</label>
+      </div>
+
+      <div class="fila-privacidad">
+        <input type="checkbox" id="usarCamara" />
+        <label for="usarCamara">Usar cámara</label>
+      </div>
+
+      <p>Micrófono: reconocimiento de voz.</p>
+      <p>Ubicación: GPS real del dispositivo para navegación y avisos.</p>
+      <p>Cámara: necesaria para usar el detector de somnolencia.</p>
+    </div>
+
+    <!-- Panel de ayuda resumida -->
+    <div id="panelAyuda">
+     <button id="cerrarAyuda" class="boton-cerrar">×</button>
+      <h3>Qué puede hacer el programa</h3>
+
+      <p><b>Orientación:</b> la aplicación está preparada para usarse en horizontal.</p>
+      <p><b>Permisos:</b> al entrar por primera vez puede pedir micrófono, ubicación y cámara. Luego puedes cambiarlos desde ☰.</p>
+      <p><b>Crear ruta:</b> escribe un destino y pulsa “Crear ruta”.</p>
+      <p><b>Empezar ruta:</b> inicia la navegación real con GPS.</p>
+      <p><b>Salir de conducción:</b> detiene la ruta actual, el seguimiento GPS y limpia la ruta del mapa.</p>
+      <p><b>Recalcular ruta:</b> si te alejas lo suficiente de la ruta, el sistema intenta recalcular automáticamente desde tu posición actual.</p>
+      <p><b>Crear avisos por voz:</b> puedes decir “aviso”, responder “sí” o “no” y dictar el motivo.</p>
+      <p><b>Borrar avisos por voz:</b> puedes decir “borrar aviso” cuando hayas pasado por él y no haya mucha distancia.</p>
+      <p><b>Gestionar tus avisos:</b> usa “Tus avisos” para eliminar manualmente los tuyos.</p>
+      <p><b>Avisos compartidos:</b> cuando un cliente crea o borra un aviso, los demás lo reciben en tiempo real.</p>
+      <p><b>Filtrado por ruta:</b> solo se muestran en el mapa los avisos cercanos a tu ruta actual.</p>
+      <p><b>Detector de somnolencia:</b> “Encender detector” lo activa, “Apagar detector” lo detiene y “Ver detector” solo abre la ventana.</p>
+      <p><b>Funcionamiento del detector:</b> usa la cámara frontal para medir el cierre de ojos y lanzar una alerta si detecta posible somnolencia.</p>
+      <p class="nota">La precisión del GPS, del reconocimiento de voz y del detector depende del dispositivo, la luz, la cobertura y los permisos del sistema.</p>
+    </div>
+
+    <!-- Barra principal de interacción -->
+    <div id="barraHerramientas" class="barra-herramientas">
+      <input id="destinoInput" type="text" placeholder="Destino. Ej: Atocha, Madrid" />
+      <button id="botonCrearRuta">Crear ruta</button>
+      <button id="botonEmpezarRuta">Empezar ruta</button>
+
+      <!-- Panel desplegable con avisos creados por el usuario -->
+      <div id="cajaMisAvisos">
+        <button id="botonMisAvisos">Tus avisos</button>
+        <div id="panelMisAvisos" class="oculto"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Barra compacta usada en conducción -->
+  <div id="barraCompacta"></div>
+
+  <!-- Estado de sensores y permisos -->
+  <div id="estadoSensores">Preparando sensores...</div>
+
+  <!-- Estado general del sistema -->
+  <div id="estadoGeneral">Iniciando sistema...</div>
+
+  <!-- Contenedor principal del mapa -->
+  <div id="mapa"></div>
+
+  <!-- Modal del detector de somnolencia -->
+  <div id="modalSomnolencia">
+    <div class="ventanaSomnolencia">
+      <div class="cabeceraSomnolencia">
+        <button id="cerrarModalSomnolencia" class="boton-icono">×</button>
+        <h2 class="tituloSomnolencia">Detector de somnolencia</h2>
+        <button id="pantallaCompletaSomnolencia" class="boton-icono">⛶</button>
+      </div>
+
+      <div class="cuerpoSomnolencia">
+        <!-- Vídeo de cámara y canvas superpuesto -->
+        <section class="tarjetaCamara">
+          <div class="contenedorCamara">
+            <video id="camaraSomnolencia" autoplay playsinline muted></video>
+            <canvas id="lienzoSomnolencia"></canvas>
+          </div>
+        </section>
+
+        <!-- Panel lateral con métricas y estado -->
+        <aside class="tarjetaInfo">
+          <h3>Estado del detector</h3>
+          <div id="estadoSomnolencia" class="estadoSomnolencia">Inicializando...</div>
+
+          <div class="filaMetrica"><span>EAR ojo izquierdo</span><span id="earIzquierdo">0.000</span></div>
+          <div class="filaMetrica"><span>EAR ojo derecho</span><span id="earDerecho">0.000</span></div>
+          <div class="filaMetrica"><span>Tiempo con ojos cerrados</span><span id="tiempoOjosCerrados">0 ms</span></div>
+          <div class="filaMetrica"><span>Umbral EAR</span><span id="valorUmbralSomnolencia">0.21</span></div>
+          <div class="filaMetrica"><span>Tiempo alerta</span><span id="valorTiempoSomnolencia">1500 ms</span></div>
+
+          <p class="pista">
+            Consejo: usa la cámara frontal con buena luz y el móvil relativamente estable.
+          </p>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Botón para alternar pantalla completa de toda la aplicación
+    const botonPantallaCompleta = document.getElementById("botonPantallaCompleta");
+
+    async function alternarPantallaCompletaSistema() {
+      try {
+        if (!document.fullscreenElement) {
+          await document.documentElement.requestFullscreen();
+          botonPantallaCompleta.textContent = "⛶";
+        } else {
+          await document.exitFullscreen();
+          botonPantallaCompleta.textContent = "⛶";
+        }
+      } catch (e) {
+        console.warn("No se pudo activar pantalla completa", e);
+      }
+    }
+
+    botonPantallaCompleta.addEventListener("click", alternarPantallaCompletaSistema);
+
+    // Cuando se sale de pantalla completa se restaura el icono por defecto
+    document.addEventListener("fullscreenchange", () => {
+      if (!document.fullscreenElement) {
+        botonPantallaCompleta.textContent = "⛶";
+      }
+    });
+  </script>
+
+  <!-- Socket.IO para comunicación en tiempo real con el servidor -->
+  <script src="/socket.io/socket.io.js"></script>
+
+  <!-- Leaflet para mapa -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Leaflet Routing Machine para cálculo y gestión de rutas -->
+  <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+
+  <!-- Lógica principal de la aplicación -->
+  <script src="app.js"></script>
+
+  <!-- Lógica del detector de somnolencia como módulo separado -->
+  <script type="module" src="drowsiness.js"></script>
+</body>
+</html>
