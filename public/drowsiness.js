@@ -1,188 +1,205 @@
-// Importa las clases de MediaPipe necesarias para detectar landmarks faciales en vídeo
+// IMPORTACIÓN DE MEDIAPIPE
+
+// Se importan las clases necesarias de MediaPipe Tasks Vision.
+// FilesetResolver carga los recursos base WASM y FaceLandmarker detecta landmarks faciales.
 import {
   FaceLandmarker,
   FilesetResolver
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest";
 
-// Clave usada para leer la configuración guardada de privacidad en localStorage
+
+// CONFIGURACIÓN GENERAL
+
+
+// Se usa la misma clave de localStorage que en app.js para compartir el estado de permisos.
 const CLAVE_PRIVACIDAD = "avisos_nav_privacidad_v10";
 
-// Referencia al modal visual del detector de somnolencia
+// Elementos del modal del detector de somnolencia.
 const modalSomnolenciaEl = document.getElementById("modalSomnolencia");
-
-// Referencia al elemento <video> donde se muestra la cámara frontal
 const camaraSomnolenciaEl = document.getElementById("camaraSomnolencia");
-
-// Referencia al canvas que se superpone al vídeo para dibujar landmarks
 const lienzoSomnolenciaEl = document.getElementById("lienzoSomnolencia");
 
-// Contexto 2D del canvas para poder dibujar puntos y líneas
+// Contexto 2D del canvas, necesario para dibujar landmarks encima del vídeo.
 const ctxSomnolencia = lienzoSomnolenciaEl.getContext("2d");
 
-// Elemento donde se muestra el estado textual del detector
+// Elementos donde se muestran métricas y estado del detector.
 const estadoSomnolenciaEl = document.getElementById("estadoSomnolencia");
-
-// Elemento donde se muestra el EAR del ojo izquierdo
 const earIzquierdoEl = document.getElementById("earIzquierdo");
-
-// Elemento donde se muestra el EAR del ojo derecho
 const earDerechoEl = document.getElementById("earDerecho");
-
-// Elemento donde se muestra el tiempo acumulado con ojos cerrados
 const tiempoOjosCerradosEl = document.getElementById("tiempoOjosCerrados");
-
-// Elemento donde se enseña el umbral configurado de EAR
 const valorUmbralSomnolenciaEl = document.getElementById("valorUmbralSomnolencia");
-
-// Elemento donde se enseña el tiempo configurado de alerta
 const valorTiempoSomnolenciaEl = document.getElementById("valorTiempoSomnolencia");
 
-// Umbral de EAR por debajo del cual se considera que el ojo está cerrado
+// Umbral de Eye Aspect Ratio por debajo del cual se considera que el ojo está cerrado.
+// Cuanto más bajo sea este valor, más cerrado tiene que estar el ojo para detectarlo.
 const UMBRAL_OJO_CERRADO = 0.21;
 
-// Tiempo mínimo con los ojos cerrados para disparar alerta de somnolencia
+// Tiempo que ambos ojos deben permanecer cerrados para activar la alerta de somnolencia.
 const TIEMPO_ALERTA_SOMNOLENCIA_MS = 1500;
 
-// Muestra en pantalla el umbral actual para que el usuario vea la configuración
+// Se muestran estos valores en la interfaz para que el usuario vea la configuración actual.
 valorUmbralSomnolenciaEl.innerText = UMBRAL_OJO_CERRADO.toFixed(2);
-
-// Muestra en pantalla el tiempo de alerta configurado
 valorTiempoSomnolenciaEl.innerText = `${TIEMPO_ALERTA_SOMNOLENCIA_MS} ms`;
 
-// Instancia del detector facial de MediaPipe, inicialmente no cargada
+
+// ESTADO INTERNO DEL DETECTOR
+
+
+// Instancia del detector de cara de MediaPipe.
+// Empieza en null porque aún no se ha cargado el modelo.
 let detectorCara = null;
-
-// Bandera para no volver a cargar el modelo más de una vez
+// Evita recargar el modelo varias veces a lo largo de la sesión.
 let modeloCargado = false;
-
-// Bandera que indica si el detector está funcionando realmente
+// Indica si el detector está activo de verdad y debe seguir procesando frames.
 let detectorActivo = false;
-
-// Marca temporal desde la que se detecta que ambos ojos están cerrados
+// Guarda el instante en que se detectó por primera vez que ambos ojos estaban cerrados.
+// Se usa para medir duración del cierre de ojos.
 let ojosCerradosDesde = null;
-
-// Último instante de vídeo procesado, para no analizar dos veces el mismo frame
+// Guarda el currentTime del último frame de vídeo procesado.
+// Sirve para no analizar dos veces el mismo frame si requestAnimationFrame va más rápido.
 let ultimoVideoTime = -1;
-
-// Stream real de la cámara frontal del dispositivo
+// Stream real de la cámara frontal del dispositivo.
 let streamCamara = null;
-
-// ID del requestAnimationFrame usado para el bucle principal
+// ID del requestAnimationFrame activo, para poder cancelarlo al detener el detector.
 let rafId = null;
-
-// Contexto de audio usado para generar pitidos sin cargar archivos externos
+// Contexto de audio usado para generar pitidos sin cargar archivos de sonido.
 let audioContext = null;
-
-// Intervalo repetitivo que mantiene la alarma sonora
+// Intervalo usado para repetir la alarma mientras persiste el estado de alerta.
 let intervaloAlarma = null;
-
-// Bandera para silenciar la alarma cuando la orientación no es la deseada
+// Si vale true, la alarma sonora no debe sonar, normalmente por la orientación del dispositivo.
 let alarmaSilenciadaPorOrientacion = false;
 
-// Índices de landmarks del ojo izquierdo usados para calcular el EAR
-const OJO_IZQUIERDO = [33, 160, 158, 133, 153, 144];
 
-// Índices de landmarks del ojo derecho usados para calcular el EAR
+// LANDMARKS DE LOS OJOS
+
+
+// Índices de MediaPipe que corresponden a 6 puntos del ojo izquierdo.
+// Esos 6 puntos se usan para calcular el EAR.
+const OJO_IZQUIERDO = [33, 160, 158, 133, 153, 144];
+// Índices equivalentes del ojo derecho.
 const OJO_DERECHO = [362, 385, 387, 263, 373, 380];
 
-// Lee desde localStorage si el usuario tiene cámara permitida y detector encendido
+
+// PRIVACIDAD COMPARTIDA CON app.js
+
+
+// Lee desde localStorage si el usuario tiene cámara permitida y si el detector se dejó encendido.
+// Este módulo no decide permisos por sí mismo: consulta el estado guardado por la app principal.
 function cargarPrivacidad() {
   try {
     const raw = localStorage.getItem(CLAVE_PRIVACIDAD);
 
-    // Si no hay datos guardados, devolvemos un estado por defecto
+    // Si no hay nada guardado, se asume el estado más seguro: sin cámara y detector apagado.
     if (!raw) return { camara: false, somnolenciaEncendida: false };
 
     const datos = JSON.parse(raw);
 
-    // Se devuelve solo la parte relevante para este módulo
+    // Solo se devuelve lo que este módulo necesita realmente.
     return {
       camara: !!datos.camara,
       somnolenciaEncendida: !!datos.somnolenciaEncendida
     };
   } catch {
-    // Si el JSON falla, se fuerza un estado seguro sin cámara ni detector
+    // Si localStorage está corrupto o el JSON falla, se vuelve a un estado seguro por defecto.
     return { camara: false, somnolenciaEncendida: false };
   }
 }
 
-// Actualiza el texto y la clase visual del estado del detector
+
+// ESTADO VISUAL DEL DETECTOR
+
+
+// Actualiza el texto de estado y la clase CSS asociada.
+// La clase se usa para colorear el estado como ok, warning o alerta.
 function ponerEstadoSomnolencia(texto, clase = "") {
   estadoSomnolenciaEl.textContent = texto;
   estadoSomnolenciaEl.className = `estadoSomnolencia ${clase}`.trim();
 }
 
-// Comprueba si el dispositivo está actualmente en vertical
+
+// ORIENTACIÓN
+
+
+// Comprueba si el dispositivo está en vertical.
+// En este proyecto se usa para silenciar la alarma si la orientación no es la esperada.
 function esVertical() {
   return window.innerHeight > window.innerWidth;
 }
 
-// Crea el contexto de audio la primera vez que hace falta
+
+// AUDIO Y ALARMA
+
+
+// Crea el contexto de audio la primera vez que se necesite.
+// Se usa Web Audio para generar pitidos de forma programática.
 function iniciarAudio() {
   if (!audioContext) {
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
   }
 }
 
-// Intenta activar el audio del navegador tras interacción del usuario
+// Intenta reanudar el contexto de audio tras interacción del usuario.
+// Muchos navegadores bloquean el audio hasta que el usuario toca o pulsa algo.
 async function desbloquearAudio() {
   try {
     iniciarAudio();
 
-    // Algunos navegadores móviles arrancan el contexto suspendido y hay que reanudarlo
+    // Si el contexto está suspendido, se intenta activarlo.
     if (audioContext.state === "suspended") {
       await audioContext.resume();
     }
   } catch {}
 }
 
-// Genera un pitido breve usando un oscilador de Web Audio
+// Genera un pitido corto.
+// No usa archivos externos: crea una onda senoidal y un envolvente de ganancia.
 function beep() {
-  // Si no existe contexto de audio, no se puede sonar
+  // Sin contexto de audio no puede sonar nada.
   if (!audioContext) return;
 
-  // Si la alarma está silenciada por orientación, no se emite pitido
+  // Si la alarma está silenciada, no se emite el pitido.
   if (alarmaSilenciadaPorOrientacion) return;
 
   const oscillator = audioContext.createOscillator();
   const gainNode = audioContext.createGain();
 
-  // Se usa una onda senoidal para que el pitido sea simple y claro
+  // Onda senoidal simple y relativamente aguda para que sea claramente audible.
   oscillator.type = "sine";
   oscillator.frequency.value = 880;
 
-  // Se conecta el oscilador al control de ganancia y luego a la salida
+  // El oscilador se conecta al nodo de ganancia y luego a la salida.
   oscillator.connect(gainNode);
   gainNode.connect(audioContext.destination);
 
-  // Se crea una envolvente de volumen corta para evitar clics bruscos
+  // Se aplica una envolvente corta al volumen para que el pitido no suene brusco.
   gainNode.gain.setValueAtTime(0.001, audioContext.currentTime);
   gainNode.gain.exponentialRampToValueAtTime(0.15, audioContext.currentTime + 0.02);
   gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.25);
 
-  // Se lanza el pitido y se detiene poco después
+  // El pitido empieza y se detiene muy poco después.
   oscillator.start();
   oscillator.stop(audioContext.currentTime + 0.25);
 }
 
-// Inicia la alarma sonora repetitiva si todavía no estaba activa
+// Arranca la alarma repetitiva si aún no estaba activa.
 async function iniciarAlarma() {
   try {
+    // Primero se intenta asegurar que el audio esté desbloqueado.
     await desbloquearAudio();
 
-    // Si la orientación silencia la alarma, no se arranca
+    // Si la orientación obliga a silencio, no se arranca.
     if (alarmaSilenciadaPorOrientacion) return;
 
-    // Si ya hay una alarma activa, no se duplica
+    // Si ya existe un intervalo de alarma, no se crea otro.
     if (intervaloAlarma) return;
 
-    // Se lanza un pitido inicial y luego se repite periódicamente
+    // Se lanza un pitido inicial y luego se repite cada 700 ms.
     beep();
     intervaloAlarma = setInterval(beep, 700);
   } catch {}
 }
 
-// Detiene completamente la alarma sonora
+// Detiene por completo la alarma repetitiva.
 function pararAlarma() {
   if (intervaloAlarma) {
     clearInterval(intervaloAlarma);
@@ -190,66 +207,82 @@ function pararAlarma() {
   }
 }
 
-// Actualiza si la alarma debe estar silenciada según la orientación actual
+// Recalcula si la alarma debe estar silenciada según la orientación actual.
 function actualizarSilencioPorOrientacion() {
   const vertical = esVertical();
   alarmaSilenciadaPorOrientacion = vertical;
 
-  // Si se entra en vertical se para cualquier alarma ya sonando
+  // Si se entra en vertical, se detiene inmediatamente cualquier alarma que esté sonando.
   if (vertical) {
     pararAlarma();
   }
 }
 
-// El navegador suele requerir interacción del usuario antes de permitir audio
+// Se intenta desbloquear el audio con el primer click del usuario.
 window.addEventListener("click", desbloquearAudio, { once: true });
 
-// También se permite desbloquear el audio con una pulsación de teclado
+// También se intenta desbloquear con la primera pulsación de teclado.
 window.addEventListener("keydown", desbloquearAudio, { once: true });
 
-// Carga y crea el modelo de MediaPipe solo una vez durante toda la sesión
+
+
+// CARGA DEL MODELO MEDIAPIPE
+
+
+// Carga y crea el detector facial solo una vez.
+// Así no se vuelve a descargar ni inicializar el modelo cada vez que se enciende el detector.
 async function asegurarModeloCargado() {
   if (modeloCargado) return;
 
   ponerEstadoSomnolencia("Cargando modelo...");
 
-  // Carga los archivos base WASM necesarios para ejecutar la visión por computador
+  // Carga los recursos base WASM necesarios para MediaPipe Tasks Vision.
   const vision = await FilesetResolver.forVisionTasks(
     "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
   );
 
-  // Crea el detector facial con configuración de vídeo y una sola cara
+  // Crea el detector con configuración adaptada a vídeo en tiempo real.
   detectorCara = await FaceLandmarker.createFromOptions(vision, {
     baseOptions: {
-      // Ruta del modelo preentrenado de landmarks faciales
+      // Modelo preentrenado de landmarks faciales.
       modelAssetPath:
         "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
-      // Se intenta usar GPU para mejorar rendimiento
+
+      // Se intenta usar GPU para mejorar rendimiento en tiempo real.
       delegate: "GPU"
     },
-    // El detector va a trabajar frame a frame sobre vídeo en tiempo real
+
+    // El detector trabajará sobre vídeo, no sobre imagen fija.
     runningMode: "VIDEO",
-    // Solo interesa la cara principal del conductor
+
+    // Solo interesa la cara principal del conductor.
     numFaces: 1
   });
 
   modeloCargado = true;
 }
 
-// Solicita el acceso a la cámara frontal y conecta el stream al elemento vídeo
+
+
+// CÁMARA
+
+
+// Solicita acceso a la cámara frontal y conecta el stream al elemento <video>.
 async function iniciarCamara() {
-  // Si ya existe stream, no se abre la cámara otra vez
+  // Si la cámara ya estaba abierta, no se solicita otra vez.
   if (streamCamara) return;
 
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: {
-        // Se prioriza la cámara frontal del dispositivo
+        // Se prioriza la cámara delantera del dispositivo.
         facingMode: { ideal: "user" },
-        // Resolución ideal pensada para horizontal
+
+        // Se pide una resolución razonable para que el detector tenga suficiente calidad.
         width: { ideal: 1280 },
         height: { ideal: 720 },
-        // Relación de aspecto panorámica
+
+        // Se sugiere una proporción panorámica, útil en horizontal.
         aspectRatio: { ideal: 16 / 9 }
       },
       audio: false
@@ -258,15 +291,15 @@ async function iniciarCamara() {
     streamCamara = stream;
     camaraSomnolenciaEl.srcObject = stream;
 
-    // Espera a que el navegador conozca el tamaño real del vídeo
+    // Se espera a que el navegador conozca metadatos como el tamaño real del vídeo.
     await new Promise((resolve) => {
       camaraSomnolenciaEl.onloadedmetadata = () => resolve();
     });
 
-    // Intenta reproducir el vídeo sin sonido
+    // Se intenta reproducir el vídeo; si falla, el catch superior se encargará.
     await camaraSomnolenciaEl.play().catch(() => {});
 
-    // Ajusta el canvas al tamaño visible del vídeo
+    // Una vez el vídeo está listo, se ajusta el canvas al tamaño visible.
     ajustarCanvasAlVideo();
   } catch (error) {
     ponerEstadoSomnolencia("No se pudo acceder a la cámara", "alerta");
@@ -274,80 +307,95 @@ async function iniciarCamara() {
   }
 }
 
-// Cierra la cámara y libera los tracks del stream
+// Cierra la cámara y libera los recursos del stream.
 function pararCamara() {
   if (streamCamara) {
+    // Se paran todos los tracks del stream para apagar físicamente la cámara.
     streamCamara.getTracks().forEach(track => track.stop());
     streamCamara = null;
   }
 
+  // Se desconecta el vídeo del stream.
   camaraSomnolenciaEl.srcObject = null;
 }
 
-// Ajusta el canvas al tamaño visual real del vídeo cuando el modal está abierto
+
+
+// CANVAS Y COORDENADAS DE DIBUJO
+
+
+// Ajusta el canvas al tamaño real con el que se está viendo el vídeo.
 function ajustarCanvasAlVideo() {
-  // Si el modal no está visible no hace falta recalcular el canvas
+  // Si el modal está cerrado, no hace falta recalcular el canvas.
   if (!modalSomnolenciaEl.classList.contains("abierto")) return;
 
   const rect = camaraSomnolenciaEl.getBoundingClientRect();
 
-  // Si todavía no hay tamaño real, se sale
+  // Si aún no hay dimensiones visibles válidas, se sale.
   if (!rect.width || !rect.height) return;
 
   const dpr = window.devicePixelRatio || 1;
 
-  // Se aumenta la resolución interna del canvas según el pixel ratio del dispositivo
+  // La resolución interna del canvas se multiplica por el pixel ratio para que se vea nítido.
   lienzoSomnolenciaEl.width = Math.round(rect.width * dpr);
   lienzoSomnolenciaEl.height = Math.round(rect.height * dpr);
 
-  // Se mantiene el tamaño CSS para que el canvas coincida visualmente con el vídeo
+  // Pero el tamaño visual CSS se mantiene igual que el del vídeo.
   lienzoSomnolenciaEl.style.width = `${rect.width}px`;
   lienzoSomnolenciaEl.style.height = `${rect.height}px`;
 
-  // Se resetea la transformación previa y se aplica la escala de alta densidad
+  // Se resetea cualquier transformación anterior.
   ctxSomnolencia.setTransform(1, 0, 0, 1, 0, 0);
+
+  // Se reescala el contexto para trabajar en coordenadas CSS aunque el canvas tenga más resolución interna.
   ctxSomnolencia.scale(dpr, dpr);
 }
 
-// Calcula el rectángulo exacto donde realmente se está dibujando el vídeo dentro del contenedor
+// Calcula el rectángulo exacto en el que el vídeo se está dibujando dentro del contenedor.
+// Esto es importante porque con object-fit: contain puede haber márgenes arriba/abajo o a los lados.
 function obtenerRectanguloVideoRenderizado() {
   const contW = camaraSomnolenciaEl.clientWidth;
   const contH = camaraSomnolenciaEl.clientHeight;
   const vidW = camaraSomnolenciaEl.videoWidth || 1;
   const vidH = camaraSomnolenciaEl.videoHeight || 1;
 
-  // Como se usa object-fit: contain, se calcula la escala mínima para no deformar
+  // Se calcula la escala mínima para que quepa sin deformarse.
   const escala = Math.min(contW / vidW, contH / vidH);
   const drawW = vidW * escala;
   const drawH = vidH * escala;
 
-  // Se calculan márgenes internos para centrar el vídeo dentro del contenedor
+  // Se calculan los márgenes internos para centrar el vídeo.
   const offsetX = (contW - drawW) / 2;
   const offsetY = (contH - drawH) / 2;
 
   return { offsetX, offsetY, drawW, drawH };
 }
 
-// Arranca el detector completo si permisos y estado lo permiten
+
+
+// ARRANQUE Y PARADA DEL DETECTOR
+
+
+// Enciende todo el detector si permisos y estado lo permiten.
 async function iniciarDetectorSomnolencia() {
   const privacidad = cargarPrivacidad();
 
-  // Si no hay permiso de cámara, no se puede activar
+  // Sin permiso de cámara no tiene sentido continuar.
   if (!privacidad.camara) {
     ponerEstadoSomnolencia("La cámara está desactivada. Actívala en Privacidad", "warning");
     return;
   }
 
-  // Si el usuario dejó el detector apagado, se respeta ese estado
+  // Si el usuario dejó el detector apagado, también se respeta.
   if (!privacidad.somnolenciaEncendida) {
     ponerEstadoSomnolencia("Detector apagado");
     return;
   }
 
-  // Se actualiza si la alarma debe estar muda por orientación
+  // Se actualiza el estado de silencio según la orientación actual.
   actualizarSilencioPorOrientacion();
 
-  // Si ya estaba activo, solo se reajusta el canvas si hace falta
+  // Si ya estaba activo, no se rearma todo; solo se reajusta el canvas si el modal está abierto.
   if (detectorActivo) {
     if (modalSomnolenciaEl.classList.contains("abierto")) {
       setTimeout(ajustarCanvasAlVideo, 60);
@@ -357,43 +405,61 @@ async function iniciarDetectorSomnolencia() {
 
   try {
     detectorActivo = true;
+
+    // Se limpian valores visuales anteriores.
     resetearSomnolencia();
+
+    // Se asegura que el modelo esté cargado.
     await asegurarModeloCargado();
+
+    // Se abre la cámara si aún no lo estaba.
     await iniciarCamara();
+
     ponerEstadoSomnolencia("Detector activo en segundo plano", "ok");
+
+    // Se resetea el control de frame procesado.
     ultimoVideoTime = -1;
+
+    // Se arranca el bucle principal de análisis.
     analizarFrame();
   } catch {
     detectorActivo = false;
   }
 }
 
-// Detiene el detector y deja todo limpio
+// Apaga completamente el detector y limpia recursos.
 function detenerDetectorSomnolencia() {
   detectorActivo = false;
   pararAlarma();
   pararCamara();
 
-  // Si había un bucle de animación activo, se cancela
+  // Si el bucle estaba activo, se cancela.
   if (rafId) {
     cancelAnimationFrame(rafId);
     rafId = null;
   }
 
+  // Se resetea el control del último frame visto.
   ultimoVideoTime = -1;
 
-  // Se limpia el canvas visual de puntos y líneas
+  // Se limpia el canvas para que no queden landmarks dibujados.
   ctxSomnolencia.clearRect(0, 0, lienzoSomnolenciaEl.width, lienzoSomnolenciaEl.height);
 
   resetearSomnolencia();
   ponerEstadoSomnolencia("Detector detenido");
 }
 
-// Bucle principal que procesa el vídeo frame a frame
+
+
+// BUCLE PRINCIPAL DE ANÁLISIS
+
+
+// Función que se llama a sí misma con requestAnimationFrame para analizar vídeo continuamente.
 function analizarFrame() {
+  // Si el detector ya no está activo, no se sigue procesando.
   if (!detectorActivo) return;
 
-  // Si el modelo aún no está listo o el vídeo no tiene datos, se reintenta en el siguiente frame
+  // Si el detector aún no está listo o el vídeo no tiene datos suficientes, se reintenta en el siguiente frame.
   if (!detectorCara || camaraSomnolenciaEl.readyState < 2) {
     rafId = requestAnimationFrame(analizarFrame);
     return;
@@ -401,14 +467,15 @@ function analizarFrame() {
 
   const ahoraMs = performance.now();
 
-  // Solo se analiza si el vídeo ha avanzado respecto al último frame procesado
+  // Solo se analiza si el vídeo ha avanzado respecto al último frame ya procesado.
+  // Esto evita recalcular varias veces exactamente la misma imagen.
   if (camaraSomnolenciaEl.currentTime !== ultimoVideoTime) {
     ultimoVideoTime = camaraSomnolenciaEl.currentTime;
 
-    // MediaPipe detecta landmarks faciales sobre el frame actual del vídeo
+    // MediaPipe analiza el frame actual del vídeo y devuelve landmarks faciales.
     const resultado = detectorCara.detectForVideo(camaraSomnolenciaEl, ahoraMs);
 
-    // Si el visor está abierto, se limpia el canvas para redibujar landmarks
+    // Si el visor está abierto, se limpia el canvas para redibujar sobre el frame nuevo.
     if (modalSomnolenciaEl.classList.contains("abierto")) {
       ajustarCanvasAlVideo();
       ctxSomnolencia.clearRect(
@@ -419,67 +486,76 @@ function analizarFrame() {
       );
     }
 
-    // Si se detectó al menos una cara, se procesa la primera
+    // Si se detectó al menos una cara, se usa la primera.
     if (resultado.faceLandmarks && resultado.faceLandmarks.length > 0) {
       const landmarks = resultado.faceLandmarks[0];
 
-      // Solo se dibuja la parte visual si la ventana está abierta
+      // Solo se dibujan puntos y líneas si la ventana visual está abierta.
       if (modalSomnolenciaEl.classList.contains("abierto")) {
         dibujarLandmarksOjos(landmarks);
       }
 
-      // Siempre se analiza la somnolencia aunque el visor no esté abierto
+      // La lógica de somnolencia sí se ejecuta siempre, aunque el visor esté cerrado.
       analizarSomnolencia(landmarks, ahoraMs);
     } else {
-      // Si no hay cara, se resetea el estado y se para cualquier alarma
+      // Si no se detecta ninguna cara, se resetea el estado y se apaga la alarma.
       resetearSomnolencia();
       pararAlarma();
       ponerEstadoSomnolencia("Buscando cara...");
     }
   }
 
+  // Se programa el siguiente frame del bucle.
   rafId = requestAnimationFrame(analizarFrame);
 }
 
-// Analiza los landmarks de los ojos y decide si hay posible somnolencia
+
+
+// LÓGICA DE SOMNOLENCIA
+
+
+// Usa los landmarks faciales para decidir si hay signos de somnolencia.
 function analizarSomnolencia(landmarks, ahoraMs) {
+  // Se extraen los puntos concretos de cada ojo a partir de los índices definidos arriba.
   const puntosOjoIzq = OJO_IZQUIERDO.map(index => landmarks[index]);
   const puntosOjoDer = OJO_DERECHO.map(index => landmarks[index]);
 
-  // Se calcula el EAR de cada ojo por separado
+  // Se calcula el EAR de ambos ojos.
   const earIzq = calcularEAR(...puntosOjoIzq);
   const earDer = calcularEAR(...puntosOjoDer);
 
-  // Se muestran ambos valores en la interfaz
+  // Se muestran en interfaz con 3 decimales.
   earIzquierdoEl.innerText = earIzq.toFixed(3);
   earDerechoEl.innerText = earDer.toFixed(3);
 
-  // Solo se considera ojo cerrado si ambos ojos bajan del umbral
+  // Solo se considera cierre real si ambos ojos están por debajo del umbral.
   const ambosCerrados = earIzq < UMBRAL_OJO_CERRADO && earDer < UMBRAL_OJO_CERRADO;
 
   if (ambosCerrados) {
-    // Si es el primer frame de cierre, guardamos el instante inicial
+    // Si es el primer frame detectado como cerrado, se guarda el instante inicial.
     if (ojosCerradosDesde === null) ojosCerradosDesde = ahoraMs;
 
     const duracion = ahoraMs - ojosCerradosDesde;
     tiempoOjosCerradosEl.innerText = `${Math.round(duracion)} ms`;
 
-    // Si se supera el tiempo configurado, se dispara la alerta
+    // Si la duración supera el umbral temporal, se considera alerta de somnolencia.
     if (duracion >= TIEMPO_ALERTA_SOMNOLENCIA_MS) {
       if (alarmaSilenciadaPorOrientacion) {
+        // Si la orientación obliga a silencio, se muestra alerta pero sin sonido.
         ponerEstadoSomnolencia("ALERTA en silencio por orientación", "warning");
         pararAlarma();
       } else {
+        // Alerta completa con texto y sonido.
         ponerEstadoSomnolencia("ALERTA: posible somnolencia", "alerta");
         iniciarAlarma();
       }
     } else {
-      // Antes de llegar al tiempo de alerta, solo se marca como ojos cerrados
+      // Todavía no ha pasado suficiente tiempo como para alertar seriamente.
       ponerEstadoSomnolencia("Ojos cerrados...", "warning");
       pararAlarma();
     }
   } else {
-    // Si se vuelven a abrir los ojos, se resetea el contador y la alarma
+    // Si los ojos se han vuelto a abrir, se reinicia el contador de cierre.
     ojosCerradosDesde = null;
     tiempoOjosCerradosEl.innerText = "0 ms";
     ponerEstadoSomnolencia("Ojos abiertos", "ok");
@@ -487,7 +563,13 @@ function analizarSomnolencia(landmarks, ahoraMs) {
   }
 }
 
-// Calcula la distancia euclídea 3D entre dos landmarks
+
+
+// CÁLCULO DEL EAR
+
+
+// Calcula distancia euclídea 3D entre dos landmarks.
+// MediaPipe da x, y y z normalizados, así que se usa la distancia completa.
 function distancia(a, b) {
   return Math.sqrt(
     (a.x - b.x) ** 2 +
@@ -496,28 +578,36 @@ function distancia(a, b) {
   );
 }
 
-// Calcula el Eye Aspect Ratio usando seis puntos de un ojo
+// Calcula el Eye Aspect Ratio a partir de 6 puntos del ojo.
+// La idea es comparar apertura vertical respecto al ancho horizontal del ojo.
 function calcularEAR(p1, p2, p3, p4, p5, p6) {
   const vertical1 = distancia(p2, p6);
   const vertical2 = distancia(p3, p5);
   const horizontal = distancia(p1, p4);
 
-  // Evita división entre cero en casos degenerados
+  // Si el ancho sale 0 por un caso raro, se evita dividir entre cero.
   if (horizontal === 0) return 0;
 
   return (vertical1 + vertical2) / (2 * horizontal);
 }
 
-// Dibuja ambos ojos sobre el canvas para depuración visual
+
+
+// DIBUJO DE LANDMARKS
+
+
+// Dibuja ambos ojos para depuración visual.
 function dibujarLandmarksOjos(landmarks) {
   dibujarUnOjo(OJO_IZQUIERDO, landmarks, "cyan");
   dibujarUnOjo(OJO_DERECHO, landmarks, "lime");
 }
 
-// Dibuja los puntos y el contorno de un ojo concreto
+// Dibuja los puntos y el contorno de un ojo concreto.
 function dibujarUnOjo(indices, landmarks, color) {
+  // Primero se pintan los puntos.
   indices.forEach(index => dibujarPunto(landmarks[index], color));
 
+  // Luego se conectan en orden para visualizar la forma del ojo.
   for (let i = 0; i < indices.length; i++) {
     const actual = landmarks[indices[i]];
     const siguiente = landmarks[indices[(i + 1) % indices.length]];
@@ -525,7 +615,7 @@ function dibujarUnOjo(indices, landmarks, color) {
   }
 }
 
-// Convierte un landmark normalizado del vídeo a coordenadas reales del canvas
+// Convierte un punto normalizado del sistema de MediaPipe a coordenadas del canvas visible.
 function convertirPuntoVideoACanvas(point) {
   const { offsetX, offsetY, drawW, drawH } = obtenerRectanguloVideoRenderizado();
 
@@ -535,7 +625,7 @@ function convertirPuntoVideoACanvas(point) {
   };
 }
 
-// Dibuja un punto circular en la posición correspondiente del canvas
+// Dibuja un punto circular en el canvas.
 function dibujarPunto(point, color = "red") {
   const p = convertirPuntoVideoACanvas(point);
 
@@ -545,7 +635,7 @@ function dibujarPunto(point, color = "red") {
   ctxSomnolencia.fill();
 }
 
-// Dibuja una línea entre dos landmarks ya convertidos al sistema del canvas
+// Dibuja una línea entre dos landmarks convertidos al sistema del canvas.
 function dibujarLinea(p1, p2, color = "white") {
   const a = convertirPuntoVideoACanvas(p1);
   const b = convertirPuntoVideoACanvas(p2);
@@ -558,7 +648,12 @@ function dibujarLinea(p1, p2, color = "white") {
   ctxSomnolencia.stroke();
 }
 
-// Restablece los indicadores visuales del detector a valores iniciales
+
+
+// RESETEO VISUAL
+
+
+// Restablece métricas e indicadores visuales a estado inicial.
 function resetearSomnolencia() {
   ojosCerradosDesde = null;
   earIzquierdoEl.innerText = "0.000";
@@ -566,33 +661,45 @@ function resetearSomnolencia() {
   tiempoOjosCerradosEl.innerText = "0 ms";
 }
 
-// Evento personalizado lanzado desde app.js para encender el detector
+
+
+// EVENTOS PERSONALIZADOS DESDE app.js
+
+
+// app.js lanza este evento cuando el usuario enciende el detector.
 window.addEventListener("somnolencia:activar", () => {
   iniciarDetectorSomnolencia();
 });
 
-// Evento personalizado lanzado desde app.js para apagar el detector
+// app.js lanza este evento cuando el usuario apaga el detector.
 window.addEventListener("somnolencia:detener", () => {
   detenerDetectorSomnolencia();
 });
 
-// Evento personalizado para reajustar el canvas cuando se abre el visor
+// app.js lanza este evento al abrir la ventana visual del detector.
+// Se usa un pequeño retraso para que el modal tenga ya tamaño real.
 window.addEventListener("somnolencia:mostrar", () => {
   setTimeout(ajustarCanvasAlVideo, 80);
 });
 
-// Evento personalizado para limpiar el canvas cuando se oculta el visor
+// app.js lanza este evento al cerrar la ventana visual.
+// Aquí solo se limpia el canvas, no necesariamente se apaga el detector.
 window.addEventListener("somnolencia:ocultar", () => {
   ctxSomnolencia.clearRect(0, 0, lienzoSomnolenciaEl.width, lienzoSomnolenciaEl.height);
 });
 
-// En resize se revisa si la alarma debe silenciarse y se reajusta el canvas
+
+
+// REACCIÓN A CAMBIOS DE TAMAÑO Y ORIENTACIÓN
+
+
+// Si cambia el tamaño de ventana, puede cambiar orientación o geometría del vídeo.
 window.addEventListener("resize", () => {
   actualizarSilencioPorOrientacion();
   setTimeout(ajustarCanvasAlVideo, 120);
 });
 
-// En cambio de orientación se da un pequeño margen antes de recalcular tamaños
+// Si cambia la orientación, se deja un margen para que el layout se estabilice.
 window.addEventListener("orientationchange", () => {
   setTimeout(() => {
     actualizarSilencioPorOrientacion();

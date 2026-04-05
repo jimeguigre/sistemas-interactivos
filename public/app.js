@@ -1,285 +1,286 @@
-// Referencia al elemento donde se muestra el estado general de la app
+
+// REFERENCIAS A LA INTERFAZ
+
+
+// Elemento donde se escriben mensajes generales de estado para el usuario.
 const estadoGeneralEl = document.getElementById("estadoGeneral");
-
-// Referencia al input donde el usuario escribe el destino
+// Input donde el usuario introduce el destino al que quiere navegar.
 const destinoInputEl = document.getElementById("destinoInput");
-
-// Botón para calcular una nueva ruta hacia el destino escrito
+// Botón que lanza el cálculo de una nueva ruta.
 const botonCrearRutaEl = document.getElementById("botonCrearRuta");
-
-// Botón para entrar en modo conducción una vez creada la ruta
+// Botón que activa el modo conducción una vez ya existe una ruta.
 const botonEmpezarRutaEl = document.getElementById("botonEmpezarRuta");
-
-// Botón para salir del modo conducción y volver al estado normal
+// Botón para salir del modo conducción y volver al estado normal.
 const botonSalirConduccionEl = document.getElementById("botonSalirConduccion");
-
-// Barra principal con input y botones de navegación
+// Barra grande con input y botones, visible fuera de conducción.
 const barraHerramientasEl = document.getElementById("barraHerramientas");
-
-// Barra compacta que sustituye a la barra normal durante la conducción
+// Barra reducida visible solo en conducción para dejar más mapa libre.
 const barraCompactaEl = document.getElementById("barraCompacta");
-
-// Zona donde se informa del estado de micrófono, GPS y cámara
+// Línea de texto que resume el estado de micrófono, GPS y cámara.
 const estadoSensoresEl = document.getElementById("estadoSensores");
-
-// Botón para abrir el panel de ayuda
+// Botón de ayuda.
 const botonAyudaEl = document.getElementById("botonAyuda");
-
-// Panel flotante con instrucciones de uso
+// Panel flotante con instrucciones de uso.
 const panelAyudaEl = document.getElementById("panelAyuda");
-
-// Botón para cerrar el panel de ayuda
+// Botón para cerrar el panel de ayuda.
 const cerrarAyudaEl = document.getElementById("cerrarAyuda");
-
-// Botón para abrir el panel de privacidad y control
+// Botón que abre el panel de privacidad y control.
 const botonPrivacidadEl = document.getElementById("botonPrivacidad");
-
-// Panel donde se configuran permisos y somnolencia
+// Panel donde se gestionan permisos y somnolencia.
 const panelPrivacidadEl = document.getElementById("panelPrivacidad");
-
-// Botón para cerrar el panel de privacidad
+// Botón para cerrar el panel de privacidad.
 const cerrarPrivacidadEl = document.getElementById("cerrarPrivacidad");
-
-// Casilla para activar o desactivar el uso del micrófono
+// Casilla que controla si la app puede usar el micrófono.
 const usarMicrofonoEl = document.getElementById("usarMicrofono");
-
-// Casilla para activar o desactivar el uso de la ubicación
+// Casilla que controla si la app puede usar la ubicación.
 const usarUbicacionEl = document.getElementById("usarUbicacion");
-
-// Casilla para activar o desactivar el permiso de cámara
+// Casilla que controla si la app puede usar la cámara.
 const usarCamaraEl = document.getElementById("usarCamara");
-
-// Botón para abrir la ventana del detector de somnolencia
+// Botón que abre la ventana visual del detector.
 const verSomnolenciaEl = document.getElementById("verSomnolencia");
-
-// Botón para encender realmente el detector de somnolencia
+// Botón que enciende realmente el detector de somnolencia.
 const encenderSomnolenciaEl = document.getElementById("encenderSomnolencia");
-
-// Botón para apagar completamente el detector de somnolencia
+// Botón que apaga completamente el detector de somnolencia.
 const apagarSomnolenciaEl = document.getElementById("apagarSomnolencia");
-
-// Botón que abre el panel con los avisos creados por el usuario
+// Botón que muestra los avisos creados por este cliente.
 const botonMisAvisosEl = document.getElementById("botonMisAvisos");
-
-// Panel donde se listan los avisos propios del usuario
+// Panel desplegable con la lista de avisos propios.
 const panelMisAvisosEl = document.getElementById("panelMisAvisos");
-
-// Modal principal del detector de somnolencia
+// Modal completo del detector de somnolencia.
 const modalSomnolenciaEl = document.getElementById("modalSomnolencia");
-
-// Botón para cerrar solo la ventana visual del detector
+// Botón que cierra la ventana del detector.
 const cerrarModalSomnolenciaEl = document.getElementById("cerrarModalSomnolencia");
-
-// Botón para poner la ventana del detector a pantalla completa
+// Botón para poner el detector en pantalla completa.
 const pantallaCompletaSomnolenciaEl = document.getElementById("pantallaCompletaSomnolencia");
 
-// Clave usada para guardar la configuración en localStorage
+
+
+// CONSTANTES DE CONFIGURACIÓN
+
+
+// Clave de localStorage donde se guardan permisos y estado del usuario.
 const CLAVE_PRIVACIDAD = "avisos_nav_privacidad_v10";
-
-// Distancia máxima para considerar que un aviso pertenece a la ruta actual
+// Distancia máxima para considerar que un aviso pertenece a la ruta actual.
 const DISTANCIA_AVISO_RUTA_METROS = 150;
-
-// Distancia a la que se hace el primer aviso por voz
+// Distancia del primer anuncio por voz de un aviso.
 const DISTANCIA_PRIMER_AVISO_METROS = 150;
-
-// Distancia a la que se hace un segundo aviso más urgente
+// Distancia del segundo anuncio, más urgente, cuando el coche ya está muy cerca.
 const DISTANCIA_SEGUNDO_AVISO_METROS = 50;
-
-// Distancia máxima hacia atrás para permitir borrar un aviso cercano ya pasado
+// Distancia máxima hacia atrás permitida para encontrar un aviso borrable por voz.
 const DISTANCIA_MAX_BORRADO_ATRAS_METROS = 500;
-
-// Distancia máxima de separación respecto a la ruta antes de recalcular
+// Si el coche se separa más de esto de la ruta, se intenta recalcular.
 const UMBRAL_SALIDA_RUTA_METROS = 80;
-
-// Tiempo máximo de espera para obtener una posición GPS
+// Tiempo máximo de espera al pedir una posición GPS.
 const GPS_TIMEOUT_MS = 15000;
-
-// Edad máxima permitida de una posición GPS almacenada en caché
+// Antigüedad máxima permitida para posiciones cacheadas del GPS.
 const GPS_MAXIMUM_AGE_MS = 0;
-
-// Nivel de zoom usado al seguir el vehículo durante conducción
+// Zoom usado cuando el mapa sigue automáticamente al vehículo.
 const ZOOM_CONDUCCION = 18;
-
-// Tiempo mínimo entre anuncios consecutivos de avisos
+// Tiempo mínimo entre dos anuncios de avisos para no saturar al usuario.
 const COOLDOWN_AVISOS_MS = 6000;
-
-// Tiempo mínimo entre comandos de voz para evitar repeticiones
+// Tiempo mínimo entre dos comandos de voz reconocidos.
 const COOLDOWN_COMANDOS_MS = 900;
-
-// Tiempo tras el cual se vuelve a mostrar el estado normal de conducción
+// Tiempo tras el cual se recupera el texto normal de conducción.
 const RETARDO_ESTADO_CONDUCCION_MS = 5000;
 
-// Conexión en tiempo real con el servidor mediante Socket.IO
+
+// CONEXIÓN EN TIEMPO REAL
+
+
+// Conexión con el servidor usando Socket.IO para compartir avisos en tiempo real.
 const socket = io();
 
-// Objeto que representa el estado de permisos y ajustes del usuario
+
+
+// ESTADO DE PRIVACIDAD
+
+
+// Objeto central con los permisos y estados persistentes del usuario.
 const privacidad = {
-  // Indica si el usuario permite usar el micrófono
+  // Permite o bloquea reconocimiento de voz.
   microfono: false,
-  // Indica si el usuario permite usar la ubicación
+
+  // Permite o bloquea geolocalización real.
   ubicacion: false,
-  // Indica si el usuario permite usar la cámara
+
+  // Permite o bloquea el uso de cámara.
   camara: false,
-  // Indica si el detector de somnolencia está encendido
+
+  // Indica si el detector de somnolencia debe estar encendido.
   somnolenciaEncendida: false,
-  // Indica si ya se hizo la petición inicial de permisos
+
+  // Indica si ya se pidió la configuración inicial alguna vez.
   inicializado: false
 };
 
-// ID del cliente asignado por Socket.IO
+
+
+// VARIABLES GLOBALES DE APP
+
+
+// ID único del cliente actual en Socket.IO.
 let idCliente = null;
-
-// Instancia principal del mapa Leaflet
+// Instancia principal del mapa Leaflet.
 let mapa;
-
-// Control de rutas de Leaflet Routing Machine
+// Control de rutas de Leaflet Routing Machine.
 let controlRuta = null;
-
-// Array con todos los puntos de la ruta calculada
+// Lista de puntos {lat,lng} que forman la ruta actual.
 let coordenadasRuta = [];
-
-// Última posición GPS conocida del usuario
+// Última posición GPS conocida del usuario.
 let posicionActual = null;
-
-// Texto del destino actual escrito por el usuario
+// Texto del destino actual, útil para UI y para recordar la navegación activa.
 let textoDestinoActual = "";
-
-// Coordenadas reales del destino una vez geocodificado
+// Coordenadas geográficas reales del destino actual.
 let latLngDestinoActual = null;
-
-// Marcador del usuario en el mapa
+// Marcador visual del usuario en el mapa.
 let marcadorUsuario = null;
-
-// Línea azul de la parte de ruta pendiente
+// Línea de la parte pendiente de la ruta.
 let lineaRutaPendiente = null;
-
-// Línea naranja de la parte de ruta ya recorrida
+// Línea de la parte ya recorrida.
 let lineaRutaRecorrida = null;
-
-// Bandera que evita recalcular varias veces a la vez
+// Bandera para evitar varios recálculos de ruta simultáneos.
 let recalculandoRuta = false;
-
-// Indica si la app está actualmente en modo conducción
+// Indica si la app está en modo conducción.
 let enConduccion = false;
-
-// Indica si el mapa debe seguir automáticamente al vehículo
+// Si es true, el mapa se centra automáticamente en el vehículo.
 let seguirVehiculo = false;
-
-// Último índice de la ruta que el usuario ya ha sobrepasado
+// Índice máximo de la ruta que se considera ya recorrido.
 let indiceMaxRecorrido = 0;
-
-// Lista completa de avisos existentes en el cliente
+// Lista completa de avisos que conoce el cliente.
 let avisos = [];
-
-// Lista filtrada de avisos que pertenecen a la ruta actual
+// Lista reducida de avisos que están cerca de la ruta actual.
 let avisosEnRuta = [];
-
-// Marca temporal del último aviso hablado
+// Marca temporal del último anuncio de aviso por voz.
 let ultimoMomentoAviso = 0;
-
-// Objeto del reconocimiento de voz del navegador
+// Objeto del reconocimiento de voz del navegador.
 let reconocimiento = null;
-
-// Indica si el reconocimiento de voz está activo en este momento
+// Bandera que indica si el reconocimiento está escuchando ahora mismo.
 let reconocimientoActivo = false;
-
-// Indica si la app está hablando con síntesis de voz
+// Bandera que indica si la app está hablando y, por tanto, no debe escuchar.
 let hablando = false;
-
-// Temporizador para reiniciar el reconocimiento de voz
+// Temporizador para reiniciar el micro con un pequeño retardo.
 let temporizadorReinicioMicro = null;
-
-// Marca temporal del último comando de voz procesado
+// Marca temporal del último comando procesado para evitar duplicados.
 let ultimoMomentoComando = 0;
-
-// Estado interno del flujo de voz de la aplicación
+// Estado del flujo de voz actual.
 let estadoApp = "esperando_comando";
-
-// Posición guardada temporalmente cuando el usuario va a crear un aviso
+// Posición donde se va a crear el aviso pendiente.
 let posicionPendienteAviso = null;
-
-// Aviso que está pendiente de confirmar para borrado
+// Aviso pendiente de confirmar para borrado.
 let avisoPendienteBorrado = null;
-
-// Temporizador para restaurar el texto de estado de conducción
+// Temporizador para restaurar el mensaje "En conducción...".
 let temporizadorEstadoConduccion = null;
-
-// ID devuelto por geolocation.watchPosition
+// ID devuelto por watchPosition para detener el GPS cuando haga falta.
 let watchIdGPS = null;
-
-// Indica si ya se obtuvo la primera posición GPS válida
+// Indica si ya se obtuvo la primera posición GPS válida.
 let primerFixGPS = false;
 
-// Escribe un mensaje en la zona de estado general
+
+
+// FUNCIONES BÁSICAS DE ESTADO
+
+
+// Escribe texto en el área de estado general.
 function ponerEstado(texto) {
   estadoGeneralEl.textContent = texto;
 }
 
-// Escribe un mensaje en la zona de estado de sensores
+// Escribe texto en el área de estado de sensores.
 function ponerEstadoSensores(texto) {
   estadoSensoresEl.textContent = texto;
 }
 
-// Actualiza el estado lógico del flujo conversacional de la app
+// Cambia el estado interno del flujo conversacional por voz.
 function ponerEstadoApp(nuevoEstado) {
   estadoApp = nuevoEstado;
 }
 
-// Borra el temporizador que restaura el estado de conducción
+// Elimina el temporizador que iba a restaurar el texto de conducción.
 function limpiarTemporizadorConduccion() {
   clearTimeout(temporizadorEstadoConduccion);
   temporizadorEstadoConduccion = null;
 }
 
-// Programa que el estado vuelva a "En conducción..." tras unos segundos
+// Programa que el mensaje vuelva a "En conducción..." tras unos segundos.
 function programarEstadoConduccion(retardo = RETARDO_ESTADO_CONDUCCION_MS) {
+  // Antes de crear uno nuevo, se elimina el temporizador anterior para no acumular varios.
   limpiarTemporizadorConduccion();
 
-  // Si no estamos conduciendo no hace falta restaurar ese estado
+  // Si no estamos conduciendo, no tiene sentido restaurar ese estado.
   if (!enConduccion) return;
 
+  // Se espera un tiempo y luego se repone el mensaje de conducción.
   temporizadorEstadoConduccion = setTimeout(() => {
     if (enConduccion) ponerEstado("En conducción...");
   }, retardo);
 }
 
-// Limpia variables temporales usadas en los flujos de crear o borrar avisos
+// Limpia variables temporales del flujo por voz.
 function resetearPendientes() {
+  // Se borra la posición pendiente de aviso.
   posicionPendienteAviso = null;
+
+  // Se borra el aviso pendiente de borrado.
   avisoPendienteBorrado = null;
+
+  // Se vuelve al estado neutral esperando un nuevo comando.
   ponerEstadoApp("esperando_comando");
 }
 
-// Cierra todos los paneles flotantes abiertos en la interfaz
+// Cierra todos los paneles flotantes.
 function cerrarPaneles() {
   panelAyudaEl.style.display = "none";
   panelPrivacidadEl.style.display = "none";
   panelMisAvisosEl.classList.add("oculto");
 }
 
-// Cambia entre barra normal y barra compacta según si estamos conduciendo
+
+
+// INTERFAZ DE CONDUCCIÓN
+
+
+// Alterna entre barra normal y barra compacta según el estado de conducción.
 function actualizarBarraCompacta() {
   if (!enConduccion) {
-    // Fuera de conducción se muestra la barra normal
+    // Fuera de conducción se oculta la barra compacta.
     barraCompactaEl.style.display = "none";
+
+    // Y se vuelve a mostrar la barra completa con todos los botones.
     barraHerramientasEl.classList.remove("oculto");
+
+    // El botón de salir de conducción no tiene sentido fuera de ese modo.
     botonSalirConduccionEl.classList.add("oculto");
+
+    // También se actualiza el resumen de sensores por si hay cambios visibles.
     actualizarResumenSensores();
     return;
   }
 
-  // En conducción se oculta la barra grande y se muestra una más compacta
+  // En conducción se oculta la barra grande para ganar espacio en pantalla.
   barraHerramientasEl.classList.add("oculto");
+
+  // Y se muestra una barra simple con información mínima.
   barraCompactaEl.style.display = "block";
+
+  // El botón salir se hace visible porque ahora sí es relevante.
   botonSalirConduccionEl.classList.remove("oculto");
 
-  // Se informa del destino actual y del número de avisos en ruta
+  // Si no hay destino, se muestra "Sin destino" como valor por defecto.
   const destino = textoDestinoActual || "Sin destino";
+
+  // La barra compacta resume destino y número de avisos en ruta.
   barraCompactaEl.textContent = `Destino: ${destino} | Avisos en ruta: ${avisosEnRuta.length}`;
+
+  // Se actualiza el resumen de sensores aunque en conducción normalmente esté oculto.
   actualizarResumenSensores();
 }
 
-// Convierte una marca temporal en una hora legible para mostrar en la interfaz
+
+
+// FUNCIONES AUXILIARES DE TEXTO
+
+
+// Convierte un timestamp en una hora legible en formato español.
 function formatearHora(ts) {
   return new Date(ts).toLocaleTimeString("es-ES", {
     hour: "2-digit",
@@ -287,19 +288,24 @@ function formatearHora(ts) {
   });
 }
 
-// Normaliza texto para comparaciones de voz ignorando mayúsculas y tildes
+// Normaliza texto para comparaciones robustas de voz.
 function normalizarTexto(texto) {
   return texto
+    // Pasa todo a minúsculas.
     .toLowerCase()
+    // Elimina espacios al principio y al final.
     .trim()
+    // Separa letras y tildes para poder eliminar acentos.
     .normalize("NFD")
+    // Elimina marcas diacríticas para que "sí" y "si" cuenten igual.
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-// Intenta mapear el texto hablado a categorías de aviso conocidas
+// Intenta convertir el texto del usuario en un motivo estándar de aviso.
 function mapearMotivoAviso(texto) {
   const limpio = normalizarTexto(texto);
 
+  // Se buscan palabras clave para clasificar el aviso en categorías comunes.
   if (limpio.includes("accidente")) return "Accidente";
   if (limpio.includes("bache")) return "Bache";
   if (limpio.includes("retencion") || limpio.includes("atasco")) return "Retención";
@@ -310,58 +316,78 @@ function mapearMotivoAviso(texto) {
   if (limpio.includes("policia")) return "Policía";
   if (limpio.includes("peligro")) return "Peligro";
 
-  // Si no encaja en ninguna categoría, se usa el texto tal cual
+  // Si no entra en ninguna categoría, se conserva el texto original.
   return texto.trim() || "AVISO";
 }
 
-// Une varios mensajes en una frase natural para síntesis de voz
+// Une varios mensajes en una sola frase natural para voz.
 function unirMensajesParaVoz(mensajes) {
   if (mensajes.length === 0) return "";
   if (mensajes.length === 1) return mensajes[0];
   if (mensajes.length === 2) return `${mensajes[0]} y ${mensajes[1]}`;
+
+  // Para 3 o más elementos, separa con comas y deja "y" antes del último.
   return `${mensajes.slice(0, -1).join(", ")} y ${mensajes[mensajes.length - 1]}`;
 }
 
-// Convierte una distancia numérica en una frase más natural para voz
+// Convierte una distancia en una frase más natural para ser leída por voz.
 function formatearDistanciaVoz(distancia) {
+  // Se redondea a decenas para evitar anunciar cifras demasiado específicas.
   const redondeada = Math.round(distancia / 10) * 10;
+
+  // Si es extremadamente cerca, se usa una expresión más natural.
   if (redondeada < 20) return "muy cerca";
+
   return `a ${redondeada} metros`;
 }
 
-// Crea un icono HTML personalizado para usarlo como marcador Leaflet
+// Crea un icono Leaflet basado en HTML y CSS, no en imagen.
 function crearIconoHTML(clase, texto) {
   return L.divIcon({
+    // Se deja vacío porque el estilo real se aplica en el HTML interno.
     className: "",
+
+    // Se genera un div con la clase y el texto indicados.
     html: `<div class="${clase}">${texto}</div>`,
+
+    // Se deja null para que el tamaño lo determine el contenido HTML.
     iconSize: null
   });
 }
 
-// Comprueba si un texto hablado equivale a una confirmación
+// Comprueba si una frase hablada equivale a una confirmación.
 function esConfirmacion(texto) {
   return /^(si|sí|vale|ok|de acuerdo|confirmo)$/.test(normalizarTexto(texto));
 }
 
-// Comprueba si un texto hablado equivale a una negación o cancelación
+// Comprueba si una frase hablada equivale a una negación o cancelación.
 function esNegacion(texto) {
   return /^(no|cancelar|cancela|olvida)$/.test(normalizarTexto(texto));
 }
 
-// Carga desde localStorage la configuración de privacidad guardada anteriormente
+
+
+// PERSISTENCIA DE PRIVACIDAD
+
+
+// Recupera desde localStorage los permisos y ajustes guardados anteriormente.
 function cargarPrivacidad() {
   const guardado = localStorage.getItem(CLAVE_PRIVACIDAD);
+
+  // Si nunca se guardó nada, simplemente no se hace nada.
   if (!guardado) return;
 
   try {
     const datos = JSON.parse(guardado);
+
+    // Cada propiedad solo se aplica si realmente es booleana.
     if (typeof datos.microfono === "boolean") privacidad.microfono = datos.microfono;
     if (typeof datos.ubicacion === "boolean") privacidad.ubicacion = datos.ubicacion;
     if (typeof datos.camara === "boolean") privacidad.camara = datos.camara;
     if (typeof datos.somnolenciaEncendida === "boolean") privacidad.somnolenciaEncendida = datos.somnolenciaEncendida;
     if (typeof datos.inicializado === "boolean") privacidad.inicializado = datos.inicializado;
   } catch {
-    // Si el JSON estuviera corrupto, se restablecen valores seguros por defecto
+    // Si el contenido está dañado o no es JSON válido, se reinicia a valores seguros.
     privacidad.microfono = false;
     privacidad.ubicacion = false;
     privacidad.camara = false;
@@ -370,38 +396,46 @@ function cargarPrivacidad() {
   }
 }
 
-// Guarda la configuración actual de privacidad en localStorage
+// Guarda en localStorage la configuración actual del usuario.
 function guardarPrivacidad() {
   localStorage.setItem(CLAVE_PRIVACIDAD, JSON.stringify(privacidad));
 }
 
-// Sincroniza las casillas del panel con el estado guardado en memoria
+// Hace que la interfaz refleje el estado real del objeto privacidad.
 function aplicarPrivacidadEnUI() {
+  // Se marcan o desmarcan las casillas según los permisos guardados.
   usarMicrofonoEl.checked = privacidad.microfono;
   usarUbicacionEl.checked = privacidad.ubicacion;
   usarCamaraEl.checked = privacidad.camara;
+
+  // Se actualiza el resumen de sensores para que coincida con esos permisos.
   actualizarResumenSensores();
 }
 
-// Muestra un resumen textual de permisos y sensores activos
+// Construye una frase resumen del estado actual de permisos y sensores.
 function actualizarResumenSensores() {
-  // En conducción se oculta para dejar más espacio al mapa
+  // En conducción se oculta esta línea para dejar más espacio libre al mapa.
   if (enConduccion) {
     estadoSensoresEl.style.display = "none";
     return;
   }
 
-  // Fuera de conducción sí se vuelve a mostrar
+  // Fuera de conducción se vuelve a mostrar.
   estadoSensoresEl.style.display = "block";
 
   const partes = [];
+
+  // Se describe si el micrófono está activo o no.
   partes.push(privacidad.microfono ? "Micrófono activo" : "Micrófono desactivado");
+
+  // Se describe si la ubicación está disponible o desactivada.
   partes.push(
     privacidad.ubicacion
       ? (enConduccion ? "GPS en uso" : "GPS disponible")
       : "Ubicación desactivada"
   );
 
+  // Se resume el estado de la cámara y del detector.
   if (!privacidad.camara) {
     partes.push("Cámara desactivada");
   } else if (privacidad.somnolenciaEncendida) {
@@ -410,30 +444,47 @@ function actualizarResumenSensores() {
     partes.push("Somnolencia apagada");
   }
 
+  // Se unen todos los fragmentos con separador visual.
   ponerEstadoSensores(partes.join(" | "));
 }
 
-// Pide permiso de micrófono y devuelve true o false según el resultado
+
+
+// PETICIÓN DE PERMISOS
+
+
+// Pide permiso de micrófono y devuelve true si se concedió.
 async function pedirPermisoMicrofono() {
+  // Si el navegador no soporta getUserMedia, no se puede pedir.
   if (!navigator.mediaDevices?.getUserMedia) return false;
 
   try {
+    // Se solicita solo audio.
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    // Se cierran inmediatamente los tracks porque aquí solo interesa comprobar el permiso.
     stream.getTracks().forEach(track => track.stop());
+
     return true;
   } catch {
+    // Si falla, se interpreta como permiso denegado o no disponible.
     return false;
   }
 }
 
-// Pide permiso de ubicación usando una posición puntual
+// Pide permiso de ubicación haciendo una consulta puntual.
 function pedirPermisoUbicacion() {
+  // Si el navegador no soporta geolocalización, se devuelve false.
   if (!("geolocation" in navigator)) return Promise.resolve(false);
 
   return new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
+      // Si se consigue posición, la ubicación está permitida.
       () => resolve(true),
+
+      // Si falla, se considera que no hay permiso o no está disponible.
       () => resolve(false),
+
       {
         enableHighAccuracy: true,
         timeout: 10000,
@@ -443,7 +494,7 @@ function pedirPermisoUbicacion() {
   });
 }
 
-// Pide permiso de cámara y lo libera inmediatamente tras comprobarlo
+// Pide permiso de cámara y lo libera justo después.
 async function pedirPermisoCamara() {
   if (!navigator.mediaDevices?.getUserMedia) return false;
 
@@ -452,55 +503,76 @@ async function pedirPermisoCamara() {
       video: { facingMode: { ideal: "user" } },
       audio: false
     });
+
+    // Se cierra enseguida porque aquí solo se está validando permiso.
     stream.getTracks().forEach(track => track.stop());
+
     return true;
   } catch {
     return false;
   }
 }
 
-// Activa o desactiva el micrófono y actualiza estado, guardado e interfaz
+
+
+// APLICAR CAMBIOS DE PERMISOS
+
+
+// Activa o desactiva el uso del micrófono.
 function ponerPermisoMicrofono(valor) {
+  // Se actualiza el estado interno.
   privacidad.microfono = valor;
+
+  // Se refleja en la casilla visual.
   usarMicrofonoEl.checked = valor;
+
+  // Se persiste el cambio.
   guardarPrivacidad();
 
   if (!valor) {
+    // Si se desactiva, se detiene el reconocimiento.
     pararReconocimiento();
   } else {
+    // Si se activa, se arranca con un pequeño retardo.
     iniciarReconocimientoConRetardo(150);
   }
 
   actualizarResumenSensores();
 }
 
-// Activa o desactiva ubicación y reacciona según el nuevo estado
+// Activa o desactiva la ubicación.
 function ponerPermisoUbicacion(valor) {
   privacidad.ubicacion = valor;
   usarUbicacionEl.checked = valor;
   guardarPrivacidad();
 
   if (!valor) {
-    // Si se quita ubicación se deja de escuchar el GPS
+    // Sin ubicación ya no se puede seguir al usuario en tiempo real.
     pararWatchGPS();
-    // Si estaba conduciendo, la conducción se termina porque depende del GPS
+
+    // Si la app estaba en conducción, se sale porque la navegación depende del GPS.
     if (enConduccion) salirModoConduccion();
   } else {
+    // Si vuelve a activarse, se vuelve a iniciar el seguimiento GPS.
     iniciarWatchGPS();
   }
 
   actualizarResumenSensores();
 }
 
-// Activa o desactiva cámara y detiene somnolencia si se pierde el permiso
+// Activa o desactiva el permiso de cámara.
 function ponerPermisoCamara(valor) {
   privacidad.camara = valor;
   usarCamaraEl.checked = valor;
 
   if (!valor) {
-    // Sin cámara no puede seguir activo el detector
+    // Si se pierde la cámara, se fuerza apagar el detector.
     privacidad.somnolenciaEncendida = false;
+
+    // También se cierra la ventana visual por coherencia.
     modalSomnolenciaEl.classList.remove("abierto");
+
+    // Se notifica al módulo de somnolencia para que se detenga de verdad.
     window.dispatchEvent(new CustomEvent("somnolencia:detener"));
   }
 
@@ -508,75 +580,108 @@ function ponerPermisoCamara(valor) {
   actualizarResumenSensores();
 }
 
-// Pide todos los permisos la primera vez que entra el usuario en la app
+
+
+// PERMISOS INICIALES
+
+
+// Pide todos los permisos la primera vez que entra el usuario.
 async function pedirPermisosInicialesSiHaceFalta() {
+  // Si ya se había inicializado antes, no se vuelven a pedir aquí.
   if (privacidad.inicializado) return;
 
-  // Se limpian visualmente las casillas antes de pedir permisos
+  // Se limpian primero las casillas visualmente.
   usarMicrofonoEl.checked = false;
   usarUbicacionEl.checked = false;
   usarCamaraEl.checked = false;
 
   ponerEstado("Solicitando permisos iniciales...");
 
-  // Se pide micrófono y se guarda el resultado
+  // Se pide permiso de micrófono y se guarda el resultado.
   const okMicro = await pedirPermisoMicrofono();
   privacidad.microfono = okMicro;
   usarMicrofonoEl.checked = okMicro;
 
-  // Se pide ubicación y se guarda el resultado
+  // Se pide permiso de ubicación y se guarda el resultado.
   const okUbicacion = await pedirPermisoUbicacion();
   privacidad.ubicacion = okUbicacion;
   usarUbicacionEl.checked = okUbicacion;
 
-  // Se pide cámara y se guarda el resultado
+  // Se pide permiso de cámara y se guarda el resultado.
   const okCamara = await pedirPermisoCamara();
   privacidad.camara = okCamara;
   usarCamaraEl.checked = okCamara;
 
-  // El detector empieza apagado aunque la cámara esté permitida
+  // Aunque la cámara esté permitida, el detector empieza apagado por diseño.
   privacidad.somnolenciaEncendida = false;
 
-  // Marcamos que la configuración inicial ya fue realizada
+  // A partir de ahora ya no se considera "primera vez".
   privacidad.inicializado = true;
   guardarPrivacidad();
   aplicarPrivacidadEnUI();
 
-  // Si hay permisos, se activan los servicios correspondientes
+  // Si hay permiso de micro, se prepara el reconocimiento de voz.
   if (okMicro) iniciarReconocimientoConRetardo(150);
+
+  // Si hay permiso de ubicación, se inicia el seguimiento GPS.
   if (okUbicacion) iniciarWatchGPS();
 
   ponerEstado("Permisos iniciales revisados. Puedes cambiarlos en Privacidad");
 }
 
-// Enciende el detector de somnolencia si la cámara está permitida
+
+
+// CONTROL DEL DETECTOR DE SOMNOLENCIA
+
+
+// Enciende el detector de somnolencia si la cámara está disponible.
 function encenderDetectorSomnolencia() {
   if (!privacidad.camara) {
     ponerEstado("Activa la cámara en Privacidad antes de encender somnolencia");
     return;
   }
 
+  // Se marca como encendido en el estado persistente.
   privacidad.somnolenciaEncendida = true;
   guardarPrivacidad();
+
+  // Se envía un evento al módulo específico de somnolencia.
   window.dispatchEvent(new CustomEvent("somnolencia:activar"));
+
   actualizarResumenSensores();
   ponerEstado("Detector de somnolencia encendido");
 }
 
-// Apaga completamente el detector y cierra su ventana si estaba abierta
+// Apaga completamente el detector.
 function apagarDetectorSomnolencia() {
+  // Se marca como apagado.
   privacidad.somnolenciaEncendida = false;
   guardarPrivacidad();
+
+  // También se cierra la ventana visual, si estaba abierta.
   modalSomnolenciaEl.classList.remove("abierto");
+
+  // Se avisa al módulo de somnolencia para parar cámara, canvas y alarma.
   window.dispatchEvent(new CustomEvent("somnolencia:detener"));
+
   actualizarResumenSensores();
   ponerEstado("Detector de somnolencia apagado");
 }
 
-// Hace que la aplicación hable usando síntesis de voz y pause el reconocimiento mientras habla
+
+
+// SÍNTESIS DE VOZ
+
+
+// Hace que la aplicación hable usando SpeechSynthesis.
 function hablar(texto, callback = null) {
+  // Mientras la app habla, no debe escuchar.
   hablando = true;
+
+  // Se para el reconocimiento para evitar que escuche su propia voz.
   pararReconocimiento();
+
+  // Se cancela cualquier locución previa para que no se encimen mensajes.
   speechSynthesis.cancel();
 
   const utterance = new SpeechSynthesisUtterance(texto);
@@ -584,101 +689,136 @@ function hablar(texto, callback = null) {
   utterance.rate = 1;
 
   utterance.onend = () => {
-    // Al terminar de hablar se reactiva el reconocimiento si sigue permitido
+    // Cuando termina, ya no está hablando.
     hablando = false;
+
+    // Se refresca el texto de sensores por si depende del estado de audio.
     actualizarResumenSensores();
+
+    // Se reinicia el reconocimiento con un pequeño retardo.
     iniciarReconocimientoConRetardo(120);
+
+    // Si se pasó callback, se ejecuta al final.
     if (callback) callback();
   };
 
   utterance.onerror = () => {
-    // Si hay error al hablar, se intenta volver al estado normal igualmente
+    // Si falla la síntesis, igualmente se recupera el estado normal.
     hablando = false;
     actualizarResumenSensores();
     iniciarReconocimientoConRetardo(120);
     if (callback) callback();
   };
 
+  // Se lanza la locución.
   speechSynthesis.speak(utterance);
 }
 
-// Crea y configura el reconocimiento de voz del navegador
+
+
+// RECONOCIMIENTO DE VOZ
+
+
+// Crea y configura el objeto de reconocimiento de voz.
 function crearReconocimiento() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-  // Si el navegador no soporta la API, se informa al usuario
+  // Si el navegador no soporta la API, se avisa y no se crea nada.
   if (!SR) {
     ponerEstadoSensores("Navegador sin reconocimiento de voz");
     return null;
   }
 
   const rec = new SR();
+
+  // Se configura en español.
   rec.lang = "es-ES";
+
+  // Se deja continuo para que siga escuchando sin reiniciar cada frase.
   rec.continuous = true;
+
+  // No interesan resultados intermedios, solo finales.
   rec.interimResults = false;
+
+  // Con una alternativa basta.
   rec.maxAlternatives = 1;
 
   rec.onstart = () => {
+    // Se marca que el reconocimiento ya está activo.
     reconocimientoActivo = true;
     actualizarResumenSensores();
   };
 
   rec.onresult = (event) => {
-    // No se procesa voz si la app está hablando o si el micro está desactivado
+    // Si la app está hablando o el micro no está permitido, se ignora el resultado.
     if (hablando || !privacidad.microfono) return;
 
     const ahora = Date.now();
-    // Evita procesar varios comandos casi simultáneos
+
+    // Si el último comando fue hace muy poco, se ignora para evitar dobles disparos.
     if (ahora - ultimoMomentoComando < COOLDOWN_COMANDOS_MS) return;
 
+    // Se toma el último resultado reconocido.
     const ultimo = event.results[event.results.length - 1];
+
+    // Se normaliza el texto para compararlo mejor.
     const texto = normalizarTexto(ultimo[0].transcript);
 
     ultimoMomentoComando = ahora;
+
+    // Se delega la interpretación al gestor del flujo de voz.
     gestionarComandoVoz(texto);
   };
 
   rec.onerror = (event) => {
     if (event.error === "not-allowed") {
+      // Si el navegador dice que no hay permiso, se refleja en la app.
       ponerPermisoMicrofono(false);
       ponerEstadoSensores("Activa permisos de micrófono");
       return;
     }
 
     if (event.error === "audio-capture") {
+      // Si no hay fuente de audio disponible, se desactiva el micro.
       ponerPermisoMicrofono(false);
       ponerEstadoSensores("No se detecta micrófono");
       return;
     }
 
     if (event.error === "network") {
+      // En algunos navegadores el reconocimiento puede fallar por red y se reintenta.
       ponerEstadoSensores("Reintentando micrófono...");
       iniciarReconocimientoConRetardo(300);
       return;
     }
 
+    // Estos errores son normales y no requieren acción especial.
     if (event.error === "no-speech" || event.error === "aborted") return;
 
+    // Para otros errores, se muestra estado y se intenta reiniciar.
     ponerEstadoSensores("Error de micrófono");
     iniciarReconocimientoConRetardo(400);
   };
 
   rec.onend = () => {
+    // Cuando termina de escuchar, se marca como inactivo.
     reconocimientoActivo = false;
-    // Si no está hablando y el micro sigue activo, se relanza automáticamente
+
+    // Si no está hablando y el permiso sigue activo, se relanza automáticamente.
     if (!hablando && privacidad.microfono) iniciarReconocimientoConRetardo(150);
   };
 
   return rec;
 }
 
-// Inicia el reconocimiento de voz si las condiciones son correctas
+// Intenta arrancar el reconocimiento si se cumplen todas las condiciones.
 function iniciarReconocimiento() {
   if (!privacidad.microfono) {
     actualizarResumenSensores();
     return;
   }
 
+  // Si no existe, ya está activo o la app está hablando, no se inicia.
   if (!reconocimiento || reconocimientoActivo || hablando) return;
 
   try {
@@ -686,8 +826,9 @@ function iniciarReconocimiento() {
   } catch {}
 }
 
-// Detiene el reconocimiento de voz si estaba activo
+// Detiene el reconocimiento si estaba activo.
 function pararReconocimiento() {
+  // También se borra un posible reinicio pendiente.
   clearTimeout(temporizadorReinicioMicro);
 
   if (reconocimiento && reconocimientoActivo) {
@@ -697,22 +838,29 @@ function pararReconocimiento() {
   }
 }
 
-// Programa el arranque del reconocimiento tras un pequeño retardo
+// Programa el inicio del reconocimiento tras un pequeño retraso.
 function iniciarReconocimientoConRetardo(ms = 150) {
   clearTimeout(temporizadorReinicioMicro);
   temporizadorReinicioMicro = setTimeout(iniciarReconocimiento, ms);
 }
 
-// Detiene el seguimiento continuo de GPS
+
+
+// GPS Y POSICIÓN
+
+
+// Detiene el seguimiento GPS continuo.
 function pararWatchGPS() {
   if (watchIdGPS !== null) {
     navigator.geolocation.clearWatch(watchIdGPS);
     watchIdGPS = null;
   }
+
+  // Al parar el watch, la próxima posición válida volverá a ser considerada primer fix.
   primerFixGPS = false;
 }
 
-// Inicia el seguimiento continuo de GPS con alta precisión
+// Inicia el seguimiento GPS continuo con alta precisión.
 function iniciarWatchGPS() {
   if (!privacidad.ubicacion) {
     actualizarResumenSensores();
@@ -724,6 +872,7 @@ function iniciarWatchGPS() {
     return;
   }
 
+  // Antes de crear uno nuevo, se detiene el seguimiento anterior si existía.
   pararWatchGPS();
   ponerEstadoSensores("Buscando señal GPS...");
 
@@ -733,12 +882,16 @@ function iniciarWatchGPS() {
       const lng = position.coords.longitude;
       const accuracy = position.coords.accuracy;
 
+      // Se guarda la posición actual completa.
       posicionActual = { lat, lng, accuracy };
+
+      // Se actualiza el marcador del usuario en el mapa.
       actualizarPosicionUsuario(lat, lng);
 
-      // Solo la primera vez se informa de que el GPS ya está listo
+      // Solo en la primera posición válida se muestra un mensaje inicial.
       if (!primerFixGPS) {
         primerFixGPS = true;
+
         ponerEstado(
           accuracy <= 100
             ? "GPS activo. Puedes crear la ruta o empezar a conducir"
@@ -748,25 +901,34 @@ function iniciarWatchGPS() {
 
       actualizarResumenSensores();
 
-      // Durante conducción la nueva posición actualiza ruta, avisos y recálculo
+      // Si se está conduciendo, la nueva posición afecta a muchas partes de la app.
       if (enConduccion) {
+        // Se actualiza qué parte de la ruta está hecha.
         actualizarProgresoRutaGPS();
+
+        // Se revisa si hay avisos cercanos que anunciar.
         anunciarAvisosProximos();
+
+        // Se comprueba si el coche se salió de la ruta y hay que recalcular.
         comprobarSalidaDeRutaYRecalcular();
       }
     },
     (error) => {
       switch (error.code) {
         case error.PERMISSION_DENIED:
+          // Si se niega el permiso, se refleja inmediatamente.
           ponerPermisoUbicacion(false);
           ponerEstadoSensores("Activa permisos de ubicación");
           break;
+
         case error.POSITION_UNAVAILABLE:
           ponerEstadoSensores("Ubicación no disponible");
           break;
+
         case error.TIMEOUT:
           ponerEstadoSensores("GPS tardó demasiado; reintentando...");
           break;
+
         default:
           ponerEstadoSensores("Error de ubicación");
       }
@@ -779,62 +941,72 @@ function iniciarWatchGPS() {
   );
 }
 
-// Inicializa el mapa Leaflet y las capas necesarias
+
+
+// MAPA Y RUTA
+
+
+// Inicializa el mapa Leaflet y sus capas principales.
 function iniciarMapa() {
+  // Se crea el mapa centrado inicialmente en Madrid como posición por defecto.
   mapa = L.map("mapa").setView([40.4168, -3.7038], 14);
 
+  // Se añade la capa base de OpenStreetMap.
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     attribution: "&copy; OpenStreetMap"
   }).addTo(mapa);
 
-  // Línea azul que representa la parte aún no recorrida
+  // Línea azul para la parte pendiente de la ruta.
   lineaRutaPendiente = L.polyline([], {
     color: "#2563eb",
     weight: 7,
     opacity: 0.95
   }).addTo(mapa);
 
-  // Línea naranja que representa la parte ya recorrida
+  // Línea naranja para la parte ya recorrida.
   lineaRutaRecorrida = L.polyline([], {
     color: "#f97316",
     weight: 7,
     opacity: 1
   }).addTo(mapa);
 
-  // Se coloca una posición inicial por defecto hasta recibir GPS real
+  // Se crea una posición inicial visual hasta que llegue el GPS real.
   actualizarPosicionUsuario(40.4168, -3.7038);
 }
 
-// Coloca o actualiza el marcador del usuario en el mapa
+// Coloca o mueve el marcador del usuario.
 function actualizarPosicionUsuario(lat, lng) {
   const latlng = L.latLng(lat, lng);
 
   if (!marcadorUsuario) {
+    // Si no existe, se crea por primera vez.
     marcadorUsuario = L.marker(latlng, {
       icon: crearIconoHTML("marcador-usuario", "TÚ")
     }).addTo(mapa).bindPopup("Tu posición");
   } else {
+    // Si ya existe, solo se actualiza su posición.
     marcadorUsuario.setLatLng(latlng);
   }
 
-  // Si el modo seguir vehículo está activo, el mapa se centra en la posición actual
+  // Si el mapa debe seguir el coche, se recentra automáticamente.
   if (seguirVehiculo) mapa.setView(latlng, ZOOM_CONDUCCION, { animate: true });
 }
 
-// Borra visualmente las dos líneas que representan la ruta
+// Borra visualmente las líneas de ruta.
 function resetearLineasRuta() {
   indiceMaxRecorrido = 0;
   lineaRutaPendiente.setLatLngs([]);
   lineaRutaRecorrida.setLatLngs([]);
 }
 
-// Elimina la ruta actual y limpia variables asociadas
+// Elimina la ruta actual y limpia variables asociadas.
 function limpiarRuta() {
   coordenadasRuta = [];
   textoDestinoActual = "";
   latLngDestinoActual = null;
 
+  // Si había un control de ruta activo, se quita del mapa.
   if (controlRuta) {
     mapa.removeControl(controlRuta);
     controlRuta = null;
@@ -845,7 +1017,12 @@ function limpiarRuta() {
   actualizarBarraCompacta();
 }
 
-// Calcula la distancia geográfica entre dos puntos usando la fórmula Haversine
+
+
+// CÁLCULOS GEOGRÁFICOS
+
+
+// Calcula la distancia geográfica aproximada entre dos puntos usando Haversine.
 function distanciaHaversineMetros(a, b) {
   const R = 6371000;
   const toRad = d => d * Math.PI / 180;
@@ -862,7 +1039,7 @@ function distanciaHaversineMetros(a, b) {
   return 2 * R * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
 }
 
-// Calcula la distancia mínima entre un punto y un segmento de ruta
+// Calcula la distancia mínima entre un punto y un segmento de recta de la ruta.
 function distanciaPuntoASegmentoMetros(p, a, b) {
   const ax = a.lng;
   const ay = a.lat;
@@ -874,28 +1051,35 @@ function distanciaPuntoASegmentoMetros(p, a, b) {
   const dx = bx - ax;
   const dy = by - ay;
 
+  // Si el segmento es en realidad un punto, se mide distancia directa.
   if (dx === 0 && dy === 0) return distanciaHaversineMetros(p, a);
 
+  // Proyección del punto p sobre el segmento ab.
   let t = ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy);
+
+  // Se fuerza a que la proyección quede dentro del segmento.
   t = Math.max(0, Math.min(1, t));
 
   const proj = { lat: ay + t * dy, lng: ax + t * dx };
   return distanciaHaversineMetros(p, proj);
 }
 
-// Calcula la distancia mínima entre un punto y toda la polilínea de la ruta
+// Calcula la distancia mínima entre un punto y toda la ruta.
 function distanciaARutaMetros(point, path) {
   if (path.length < 2) return Infinity;
 
   let min = Infinity;
+
+  // Se revisa cada segmento de la polilínea y se toma la menor distancia.
   for (let i = 0; i < path.length - 1; i++) {
     const d = distanciaPuntoASegmentoMetros(point, path[i], path[i + 1]);
     if (d < min) min = d;
   }
+
   return min;
 }
 
-// Busca el punto de la ruta más cercano a una posición dada
+// Devuelve el índice del punto de ruta más cercano a una posición dada.
 function buscarIndiceRutaMasCercano(point) {
   let minDist = Infinity;
   let indice = 0;
@@ -911,21 +1095,25 @@ function buscarIndiceRutaMasCercano(point) {
   return indice;
 }
 
-// Actualiza qué parte de la ruta ya se recorrió y cuál queda pendiente
+// Actualiza visualmente la parte recorrida y la parte pendiente de la ruta.
 function actualizarProgresoRutaGPS() {
   if (!coordenadasRuta.length || !posicionActual) return;
 
   const puntoActual = L.latLng(posicionActual.lat, posicionActual.lng);
   const indiceMasCercano = buscarIndiceRutaMasCercano(puntoActual);
 
+  // Solo se avanza hacia delante en la ruta; nunca se reduce el progreso ya hecho.
   if (indiceMasCercano > indiceMaxRecorrido) indiceMaxRecorrido = indiceMasCercano;
 
+  // Parte recorrida: desde el inicio hasta el último punto alcanzado.
   const recorrida = coordenadasRuta
     .slice(0, indiceMaxRecorrido + 1)
     .map(p => [p.lat, p.lng]);
 
+  // Se añade la posición actual para que la línea llegue exactamente al coche.
   recorrida.push([posicionActual.lat, posicionActual.lng]);
 
+  // Parte pendiente: desde la posición actual hasta el resto de la ruta.
   const pendiente = [[posicionActual.lat, posicionActual.lng]]
     .concat(coordenadasRuta.slice(indiceMaxRecorrido + 1).map(p => [p.lat, p.lng]));
 
@@ -933,20 +1121,28 @@ function actualizarProgresoRutaGPS() {
   lineaRutaPendiente.setLatLngs(pendiente);
 }
 
-// Convierte el texto del destino en coordenadas mediante Nominatim
+
+
+// GEOCODIFICACIÓN Y CONSTRUCCIÓN DE RUTA
+
+
+// Convierte un texto de destino en coordenadas reales usando Nominatim.
 async function geocodificarDestino(query) {
   const response = await fetch(
     `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`
   );
   const data = await response.json();
 
+  // Si no hay resultados, se lanza un error que luego mostrará un mensaje al usuario.
   if (!data?.length) throw new Error("Destino no encontrado");
+
   return L.latLng(parseFloat(data[0].lat), parseFloat(data[0].lon));
 }
 
-// Construye la ruta desde el origen actual hasta el destino usando OSRM
+// Construye una ruta entre origen y destino usando Leaflet Routing Machine + OSRM.
 function construirRuta(inicioLatLng, destinoLatLng) {
   return new Promise((resolve, reject) => {
+    // Si ya había un control de ruta previo, se elimina para no duplicar rutas.
     if (controlRuta) {
       mapa.removeControl(controlRuta);
       controlRuta = null;
@@ -957,27 +1153,47 @@ function construirRuta(inicioLatLng, destinoLatLng) {
     indiceMaxRecorrido = 0;
 
     controlRuta = L.Routing.control({
+      // Se fijan origen y destino.
       waypoints: [inicioLatLng, destinoLatLng],
+
+      // Se usa el servicio OSRM público.
       router: L.Routing.osrmv1({
         serviceUrl: "https://router.project-osrm.org/route/v1"
       }),
+
+      // Se bloquea la edición manual de waypoints porque aquí no interesa.
       routeWhileDragging: false,
       addWaypoints: false,
       draggableWaypoints: false,
+
+      // Se ajusta el mapa automáticamente a la ruta.
       fitSelectedRoutes: true,
+
+      // Se oculta el panel textual del plugin.
       show: false,
       collapsible: true,
+
+      // Se oculta la línea por defecto del plugin porque usamos nuestras propias polilíneas.
       lineOptions: { styles: [{ color: "transparent", opacity: 0, weight: 0 }] },
+
+      // Se desactivan los marcadores automáticos de inicio y fin.
       createMarker: () => null
     }).addTo(mapa);
 
     controlRuta.on("routesfound", (e) => {
       const route = e.routes[0];
+
+      // Se transforma la ruta a una lista simple de puntos lat/lng.
       coordenadasRuta = route.coordinates.map(c => ({ lat: c.lat, lng: c.lng }));
+
+      // Inicialmente toda la ruta es pendiente.
       lineaRutaPendiente.setLatLngs(coordenadasRuta.map(p => [p.lat, p.lng]));
       lineaRutaRecorrida.setLatLngs([]);
+
+      // Se actualizan avisos visibles para la nueva ruta.
       refrescarVisibilidadAvisos();
       actualizarBarraCompacta();
+
       resolve(route);
     });
 
@@ -987,7 +1203,7 @@ function construirRuta(inicioLatLng, destinoLatLng) {
   });
 }
 
-// Crea una nueva ruta usando el texto escrito por el usuario
+// Crea una nueva ruta a partir del texto escrito en el input.
 async function crearRutaDesdeInput() {
   const destino = destinoInputEl.value.trim();
 
@@ -1006,6 +1222,7 @@ async function crearRutaDesdeInput() {
     return;
   }
 
+  // Se limpian estados temporales y paneles antes de empezar un nuevo cálculo.
   limpiarTemporizadorConduccion();
   detenerConduccion(false);
   cerrarPaneles();
@@ -1020,7 +1237,7 @@ async function crearRutaDesdeInput() {
     latLngDestinoActual = destinoLatLng;
     await construirRuta(inicio, destinoLatLng);
 
-    // Al crear nueva ruta se reinician las marcas de avisos anunciados
+    // Al crear una ruta nueva, todos los avisos vuelven a ser anunciables.
     avisos.forEach(a => {
       a.anunciado150 = false;
       a.anunciado50 = false;
@@ -1034,7 +1251,12 @@ async function crearRutaDesdeInput() {
   }
 }
 
-// Cambia la aplicación al modo conducción
+
+
+// CONDUCCIÓN Y RECÁLCULO
+
+
+// Activa el modo conducción si existe ruta y GPS válido.
 function empezarConduccion() {
   if (!coordenadasRuta.length) {
     ponerEstado("Primero crea una ruta");
@@ -1057,7 +1279,7 @@ function empezarConduccion() {
   actualizarBarraCompacta();
   cerrarPaneles();
 
-  // Se reinician avisos anunciados para la nueva conducción
+  // Al iniciar conducción, todos los avisos pueden volver a anunciarse.
   avisos.forEach(a => {
     a.anunciado150 = false;
     a.anunciado50 = false;
@@ -1067,7 +1289,7 @@ function empezarConduccion() {
   actualizarProgresoRutaGPS();
 }
 
-// Sale del modo conducción y opcionalmente limpia la ruta
+// Desactiva el modo conducción y opcionalmente limpia la ruta.
 function detenerConduccion(limpiarRutaTambien = true) {
   limpiarTemporizadorConduccion();
   enConduccion = false;
@@ -1078,9 +1300,12 @@ function detenerConduccion(limpiarRutaTambien = true) {
   if (limpiarRutaTambien) limpiarRuta();
 }
 
-// Comprueba si el usuario se ha desviado de la ruta y recalcula si hace falta
+// Comprueba si el coche se salió de la ruta y recalcula si hace falta.
 async function comprobarSalidaDeRutaYRecalcular() {
+  // Si falta cualquier dato clave, no se puede recalcular.
   if (!posicionActual || !coordenadasRuta.length || !textoDestinoActual || !latLngDestinoActual) return;
+
+  // Si ya se está recalculando o no se está conduciendo, se sale.
   if (recalculandoRuta || !enConduccion) return;
 
   const distancia = distanciaARutaMetros(posicionActual, coordenadasRuta);
@@ -1092,8 +1317,11 @@ async function comprobarSalidaDeRutaYRecalcular() {
 
     try {
       const inicio = L.latLng(posicionActual.lat, posicionActual.lng);
+
+      // Se reconstruye una nueva ruta desde la posición actual hasta el destino guardado.
       await construirRuta(inicio, latLngDestinoActual);
 
+      // Tras recalcular, los avisos vuelven a ser anunciables.
       avisos.forEach(a => {
         a.anunciado150 = false;
         a.anunciado50 = false;
@@ -1106,25 +1334,34 @@ async function comprobarSalidaDeRutaYRecalcular() {
     } catch {
       ponerEstado("No se pudo recalcular la ruta");
     } finally {
+      // Pase lo que pase, se libera el bloqueo de recálculo.
       recalculandoRuta = false;
     }
   }
 }
 
-// Añade a la interfaz un aviso recibido del servidor
+
+
+// GESTIÓN DE AVISOS
+
+
+// Añade un aviso recibido del servidor al mapa y a la lista local.
 function agregarAvisoServidor(aviso) {
+  // Si ya existe un aviso con el mismo ID, no se duplica.
   if (avisos.some(a => a.id === aviso.id)) return;
 
   const marker = L.marker([aviso.lat, aviso.lng], {
     icon: crearIconoHTML("marcador-aviso", "AVISO")
   });
 
+  // Se configura un popup sencillo con mensaje y hora.
   marker.bindPopup(`
     <b>AVISO</b><br>
     ${aviso.message}<br>
     <small>${formatearHora(aviso.timestamp)}</small>
   `);
 
+  // Se guarda el aviso localmente junto con datos auxiliares para anuncios.
   avisos.push({
     ...aviso,
     marker,
@@ -1137,39 +1374,48 @@ function agregarAvisoServidor(aviso) {
   actualizarBarraCompacta();
 }
 
-// Elimina de la interfaz un aviso dado su id
+// Elimina un aviso de la interfaz usando su ID.
 function quitarAvisoUI(id) {
   const index = avisos.findIndex(a => a.id === id);
+
+  // Si no se encuentra, no hay nada que quitar.
   if (index === -1) return false;
 
   const aviso = avisos[index];
+
+  // Si su marcador estaba visible, se quita del mapa.
   if (mapa.hasLayer(aviso.marker)) mapa.removeLayer(aviso.marker);
 
+  // Se elimina de la lista local.
   avisos.splice(index, 1);
+
   refrescarVisibilidadAvisos();
   refrescarPanelMisAvisos();
   actualizarBarraCompacta();
   return true;
 }
 
-// Envía al servidor la petición para crear un nuevo aviso
+// Envía al servidor un nuevo aviso creado por este cliente.
 function enviarCreacionAviso(lat, lng, message) {
   socket.emit("warning:create", {
     lat,
     lng,
+    // Se limita la longitud y se intenta estandarizar el motivo.
     message: mapearMotivoAviso(message).slice(0, 80)
   });
 }
 
-// Envía al servidor la petición para borrar un aviso
+// Envía al servidor una petición de borrado de aviso.
 function enviarBorradoAviso(id) {
   socket.emit("warning:delete", { id });
 }
 
-// Reconstruye visualmente el panel con los avisos creados por el propio usuario
+// Reconstruye el panel visual de "mis avisos".
 function refrescarPanelMisAvisos() {
+  // Primero se vacía el contenido actual.
   panelMisAvisosEl.innerHTML = "";
 
+  // Se filtran solo los avisos creados por este cliente.
   const mios = avisos.filter(a => a.creatorClientId === idCliente);
 
   if (mios.length === 0) {
@@ -1205,7 +1451,7 @@ function refrescarPanelMisAvisos() {
   });
 }
 
-// Devuelve solo los avisos que se consideran cercanos a la ruta actual
+// Devuelve solo los avisos que están suficientemente cerca de la ruta actual.
 function obtenerAvisosEnRuta() {
   if (!coordenadasRuta.length) return [];
 
@@ -1215,13 +1461,14 @@ function obtenerAvisosEnRuta() {
   });
 }
 
-// Muestra u oculta los marcadores según si pertenecen a la ruta actual
+// Muestra u oculta marcadores según si pertenecen a la ruta actual.
 function refrescarVisibilidadAvisos() {
   const visibles = obtenerAvisosEnRuta();
   avisosEnRuta = visibles;
 
   avisos.forEach(a => {
     const enRuta = visibles.includes(a);
+
     if (enRuta) {
       if (!mapa.hasLayer(a.marker)) a.marker.addTo(mapa);
     } else {
@@ -1232,15 +1479,17 @@ function refrescarVisibilidadAvisos() {
   actualizarBarraCompacta();
 }
 
-// Anuncia por voz cuántos avisos hay en la ruta tras crearla o recalcularla
+// Anuncia cuántos avisos hay en la ruta.
 function anunciarNumeroAvisosRuta(prefijo = "Ruta creada") {
   const count = avisosEnRuta.length;
+
   if (count === 0) return hablar(`${prefijo}. No hay avisos en la ruta`);
   if (count === 1) return hablar(`${prefijo}. Hay 1 aviso en la ruta`);
+
   hablar(`${prefijo}. Hay ${count} avisos en la ruta`);
 }
 
-// Busca el aviso más adecuado para borrar por voz en función de ruta y distancia
+// Busca el aviso más razonable para borrar por voz.
 function obtenerAvisoPasadoMasCercanoEnRuta() {
   if (!posicionActual || !avisosEnRuta.length || !coordenadasRuta.length) return null;
 
@@ -1253,12 +1502,12 @@ function obtenerAvisoPasadoMasCercanoEnRuta() {
     const indiceAviso = buscarIndiceRutaMasCercano(puntoAviso);
     const distanciaCoche = distanciaHaversineMetros(posicionActual, puntoAviso);
 
-    // Se considera válido si está cerca y no demasiado adelantado respecto al coche
+    // Se considera aceptable si no está muy adelantado y no queda demasiado lejos.
     const detras = indiceAviso <= indiceCoche + 5;
     if (!detras) continue;
     if (distanciaCoche > DISTANCIA_MAX_BORRADO_ATRAS_METROS) continue;
 
-    // Se penaliza ligeramente si está más adelantado en la ruta
+    // Se penaliza si está algo adelantado respecto al coche.
     const penalizacion = Math.max(0, indiceAviso - indiceCoche) * 5;
     const score = distanciaCoche + penalizacion;
 
@@ -1271,18 +1520,21 @@ function obtenerAvisoPasadoMasCercanoEnRuta() {
   return mejorAviso;
 }
 
-// Lanza avisos por voz cuando hay marcadores próximos en la ruta
+// Anuncia por voz avisos próximos al vehículo.
 function anunciarAvisosProximos() {
+  // Si falta posición, avisos o la app está hablando, no se anuncia nada.
   if (!posicionActual || !avisosEnRuta.length || hablando) return;
 
   const ahora = Date.now();
+
+  // Se respeta un tiempo de enfriamiento entre anuncios.
   if (ahora - ultimoMomentoAviso < COOLDOWN_AVISOS_MS) return;
 
   const banda150 = [];
   const banda50 = [];
 
   for (const aviso of avisosEnRuta) {
-    // No se anuncia al propio usuario su propio aviso
+    // No se anuncian los avisos creados por el propio usuario.
     if (aviso.creatorClientId === idCliente) continue;
 
     const distancia = distanciaHaversineMetros(posicionActual, { lat: aviso.lat, lng: aviso.lng });
@@ -1294,9 +1546,10 @@ function anunciarAvisosProximos() {
     }
   }
 
-  // Se da prioridad a los avisos más cercanos
+  // Primero se da prioridad a los avisos de 50 metros.
   if (banda50.length > 0) {
     banda50.forEach(item => {
+      // Al anunciar a 50, también se da por anunciado a 150.
       item.aviso.anunciado50 = true;
       item.aviso.anunciado150 = true;
     });
@@ -1312,7 +1565,7 @@ function anunciarAvisosProximos() {
     return;
   }
 
-  // Si no hay de 50 metros, se anuncian los de 150 metros
+  // Si no hay avisos de 50 metros, se revisan los de 150.
   if (banda150.length > 0) {
     banda150.forEach(item => {
       item.aviso.anunciado150 = true;
@@ -1329,22 +1582,31 @@ function anunciarAvisosProximos() {
   }
 }
 
-// Empieza el flujo de creación de aviso por voz
+
+
+// FLUJOS DE VOZ DE AVISOS
+
+
+// Inicia el flujo para crear un aviso por voz.
 function iniciarFlujoAviso() {
   limpiarTemporizadorConduccion();
 
+  // Sin posición actual no tiene sentido crear aviso geolocalizado.
   if (!posicionActual) {
     hablar("Todavía no tengo posición");
     return;
   }
 
+  // Se guarda la posición exacta del momento en que se inicia el flujo.
   posicionPendienteAviso = { lat: posicionActual.lat, lng: posicionActual.lng };
+
+  // Se pasa al estado donde se espera confirmación del usuario.
   ponerEstadoApp("confirmando_aviso");
   ponerEstado("Confirmando aviso...");
   hablar("¿Quieres poner un aviso? Responde sí o no");
 }
 
-// Pasa al siguiente paso, donde el usuario debe decir el motivo del aviso
+// Pasa a la fase de pedir el motivo del aviso.
 function pedirMotivoAviso() {
   limpiarTemporizadorConduccion();
   ponerEstadoApp("esperando_motivo");
@@ -1352,27 +1614,31 @@ function pedirMotivoAviso() {
   hablar("Di el motivo del aviso");
 }
 
-// Empieza el flujo de borrado de aviso por voz
+// Inicia el flujo de borrado por voz.
 function iniciarFlujoBorrado() {
   limpiarTemporizadorConduccion();
 
   const avisoMasCercano = obtenerAvisoPasadoMasCercanoEnRuta();
+
   if (!avisoMasCercano) {
     hablar("No hay avisos recientes de tu ruta para borrar");
     return;
   }
 
+  // Se guarda temporalmente el aviso candidato al borrado.
   avisoPendienteBorrado = avisoMasCercano;
+
   ponerEstadoApp("confirmando_borrado");
   ponerEstado(`Confirmando borrado de: ${avisoMasCercano.message}`);
   hablar(`¿Quieres borrar el aviso de ${avisoMasCercano.message}? Responde sí o no`);
 }
 
-// Interpreta los comandos de voz según el estado actual del flujo
+// Interpreta el texto de voz según el estado actual del flujo.
 function gestionarComandoVoz(texto) {
+  // Si la app está hablando o el micro está desactivado, no se procesa.
   if (hablando || !privacidad.microfono) return;
 
-  // Comando global para cancelar cualquier flujo en curso
+  // "cancelar" funciona como comando global desde cualquier estado.
   if (texto === "cancelar" || texto.includes("cancelar")) {
     resetearPendientes();
     hablar("Acción cancelada");
@@ -1380,7 +1646,7 @@ function gestionarComandoVoz(texto) {
     return;
   }
 
-  // Estado normal esperando un comando nuevo
+  // Estado normal, esperando un comando general.
   if (estadoApp === "esperando_comando") {
     if (texto === "borrar aviso" || texto.includes("borrar aviso")) {
       iniciarFlujoBorrado();
@@ -1393,20 +1659,22 @@ function gestionarComandoVoz(texto) {
     return;
   }
 
-  // Estado esperando confirmación para crear aviso
+  // Estado esperando confirmación para crear aviso.
   if (estadoApp === "confirmando_aviso") {
     if (esConfirmacion(texto)) return pedirMotivoAviso();
+
     if (esNegacion(texto)) {
       resetearPendientes();
       ponerEstado("Aviso cancelado");
       hablar("Vale, no añado ningún aviso", programarEstadoConduccion);
       return;
     }
+
     hablar("No te he entendido. Responde sí o no");
     return;
   }
 
-  // Estado esperando el motivo del aviso a crear
+  // Estado esperando el motivo del aviso.
   if (estadoApp === "esperando_motivo") {
     const motivo = texto.trim();
 
@@ -1421,7 +1689,7 @@ function gestionarComandoVoz(texto) {
     return;
   }
 
-  // Estado esperando confirmación para borrar un aviso
+  // Estado esperando confirmación de borrado.
   if (estadoApp === "confirmando_borrado") {
     if (esConfirmacion(texto)) {
       const mensaje = avisoPendienteBorrado.message;
@@ -1443,58 +1711,72 @@ function gestionarComandoVoz(texto) {
   }
 }
 
-// Cuando se conecta el cliente, se guarda su id para identificar avisos propios
+
+
+// EVENTOS DE SOCKET.IO
+
+
+// Al conectarse al servidor, se guarda el id del cliente.
 socket.on("connect", () => {
   idCliente = socket.id;
   refrescarPanelMisAvisos();
 });
 
-// Al entrar, el servidor envía todos los avisos actuales para inicializar el cliente
+// El servidor envía todos los avisos existentes al iniciar un cliente.
 socket.on("warnings:init", (serverWarnings) => {
+  // Primero se limpian marcadores viejos si los hubiera.
   avisos.forEach(a => {
     if (mapa.hasLayer(a.marker)) mapa.removeLayer(a.marker);
   });
 
   avisos = [];
+
+  // Luego se reconstruyen los avisos locales con la lista enviada por servidor.
   serverWarnings.forEach(agregarAvisoServidor);
 });
 
-// Cuando el servidor comunica un nuevo aviso, se añade a la interfaz
+// Cuando otro cliente o este mismo crea un aviso, el servidor lo reenvía aquí.
 socket.on("warning:created", (warning) => {
   agregarAvisoServidor(warning);
 
+  // Si el creador fui yo, se muestra confirmación al usuario.
   if (warning.creatorClientId === idCliente) {
     ponerEstado(`Aviso compartido: ${warning.message}`);
     programarEstadoConduccion();
   }
 });
 
-// Cuando el servidor comunica un borrado, se elimina en la interfaz
+// Cuando el servidor avisa de un borrado, se quita de la interfaz.
 socket.on("warning:deleted", ({ id }) => {
   quitarAvisoUI(id);
 });
 
-// Abre el panel de ayuda
+
+
+// EVENTOS DE INTERFAZ
+
+
+// Abrir ayuda.
 botonAyudaEl.addEventListener("click", () => {
   panelAyudaEl.style.display = "block";
 });
 
-// Cierra el panel de ayuda
+// Cerrar ayuda.
 cerrarAyudaEl.addEventListener("click", () => {
   panelAyudaEl.style.display = "none";
 });
 
-// Abre el panel de privacidad
+// Abrir privacidad.
 botonPrivacidadEl.addEventListener("click", () => {
   panelPrivacidadEl.style.display = "block";
 });
 
-// Cierra el panel de privacidad
+// Cerrar privacidad.
 cerrarPrivacidadEl.addEventListener("click", () => {
   panelPrivacidadEl.style.display = "none";
 });
 
-// Abre la ventana del detector solo si está permitido y encendido
+// Abrir el visor del detector solo si está permitido y encendido.
 verSomnolenciaEl.addEventListener("click", () => {
   if (!privacidad.camara) {
     ponerEstado("Activa la cámara en Privacidad para usar somnolencia");
@@ -1510,28 +1792,30 @@ verSomnolenciaEl.addEventListener("click", () => {
 
   modalSomnolenciaEl.classList.add("abierto");
   panelPrivacidadEl.style.display = "none";
+
+  // Se lanza evento al módulo de somnolencia para que reajuste canvas y visor.
   window.dispatchEvent(new CustomEvent("somnolencia:mostrar"));
 });
 
-// Botón para encender el detector
+// Encender detector.
 encenderSomnolenciaEl.addEventListener("click", () => {
   encenderDetectorSomnolencia();
   panelPrivacidadEl.style.display = "none";
 });
 
-// Botón para apagar el detector
+// Apagar detector.
 apagarSomnolenciaEl.addEventListener("click", () => {
   apagarDetectorSomnolencia();
   panelPrivacidadEl.style.display = "none";
 });
 
-// Cierra solo la ventana visual del detector, no necesariamente el detector entero
+// Cerrar solo la ventana visual del detector.
 cerrarModalSomnolenciaEl.addEventListener("click", () => {
   modalSomnolenciaEl.classList.remove("abierto");
   window.dispatchEvent(new CustomEvent("somnolencia:ocultar"));
 });
 
-// Activa o desactiva pantalla completa sobre la ventana del detector
+// Alternar pantalla completa dentro del detector.
 pantallaCompletaSomnolenciaEl.addEventListener("click", async () => {
   try {
     const ventana = modalSomnolenciaEl.querySelector(".ventanaSomnolencia");
@@ -1546,12 +1830,12 @@ pantallaCompletaSomnolenciaEl.addEventListener("click", async () => {
   } catch {}
 });
 
-// Restaura el icono correcto al salir de pantalla completa
+// Si se sale de fullscreen por cualquier motivo, se restaura el icono.
 document.addEventListener("fullscreenchange", () => {
   if (!document.fullscreenElement) pantallaCompletaSomnolenciaEl.textContent = "⛶";
 });
 
-// Gestión del checkbox de micrófono
+// Cambio manual del permiso de micrófono.
 usarMicrofonoEl.addEventListener("change", async () => {
   if (usarMicrofonoEl.checked) {
     const granted = await pedirPermisoMicrofono();
@@ -1562,7 +1846,7 @@ usarMicrofonoEl.addEventListener("change", async () => {
   }
 });
 
-// Gestión del checkbox de ubicación
+// Cambio manual del permiso de ubicación.
 usarUbicacionEl.addEventListener("change", async () => {
   if (usarUbicacionEl.checked) {
     const granted = await pedirPermisoUbicacion();
@@ -1573,7 +1857,7 @@ usarUbicacionEl.addEventListener("change", async () => {
   }
 });
 
-// Gestión del checkbox de cámara
+// Cambio manual del permiso de cámara.
 usarCamaraEl.addEventListener("change", async () => {
   if (usarCamaraEl.checked) {
     const granted = await pedirPermisoCamara();
@@ -1584,23 +1868,29 @@ usarCamaraEl.addEventListener("change", async () => {
   }
 });
 
-// Eventos principales de los botones de navegación
+// Botones principales de navegación.
 botonCrearRutaEl.addEventListener("click", crearRutaDesdeInput);
 botonEmpezarRutaEl.addEventListener("click", empezarConduccion);
 botonSalirConduccionEl.addEventListener("click", salirModoConduccion);
 
-// Abre o cierra el panel de "mis avisos" y lo reconstruye
+// Abrir o cerrar el panel de avisos propios.
 botonMisAvisosEl.addEventListener("click", () => {
   panelMisAvisosEl.classList.toggle("oculto");
   refrescarPanelMisAvisos();
 });
 
-// Sale del modo conducción y devuelve la app a estado normal
+
+
+// SALIR DE CONDUCCIÓN
+
+
+// Finaliza el modo conducción y restablece la vista normal.
 function salirModoConduccion() {
   detenerConduccion(true);
   destinoInputEl.value = "";
   cerrarPaneles();
 
+  // Si hay posición actual, se recentra el mapa con un zoom más general.
   if (posicionActual) {
     mapa.setView([posicionActual.lat, posicionActual.lng], 14, { animate: true });
   }
@@ -1608,24 +1898,36 @@ function salirModoConduccion() {
   ponerEstado("Modo conducción finalizado. Puedes crear otra ruta");
 }
 
-// Función principal de arranque de toda la app
+
+
+// INICIALIZACIÓN GENERAL
+
+
+// Función principal de arranque de toda la aplicación.
 function iniciarApp() {
+  // Se carga configuración previa del usuario.
   cargarPrivacidad();
+
+  // Se crea el mapa y sus capas base.
   iniciarMapa();
+
+  // Se sincronizan las casillas con la configuración guardada.
   aplicarPrivacidadEnUI();
 
-  // Se crea una sola vez el objeto de reconocimiento de voz
+  // Se crea una sola vez el reconocimiento de voz.
   reconocimiento = crearReconocimiento();
 
   if (privacidad.inicializado) {
-    // Si ya había permisos guardados, se restauran los servicios necesarios
+    // Si ya hubo configuración previa, se restauran automáticamente servicios permitidos.
     if (privacidad.microfono) iniciarReconocimientoConRetardo(150);
     if (privacidad.ubicacion) iniciarWatchGPS();
+
+    // Si cámara y detector estaban activos, se vuelve a encender la somnolencia.
     if (privacidad.camara && privacidad.somnolenciaEncendida) {
       window.dispatchEvent(new CustomEvent("somnolencia:activar"));
     }
 
-    // Se muestra un mensaje inicial según qué permisos estén activos
+    // Mensaje inicial según el estado de permisos.
     if (!privacidad.ubicacion && !privacidad.microfono && !privacidad.camara) {
       ponerEstado("Activa permisos desde Privacidad para usar el sistema");
     } else if (!privacidad.ubicacion) {
@@ -1634,12 +1936,12 @@ function iniciarApp() {
       ponerEstado("Sistema listo. Escribe un destino para crear una ruta");
     }
   } else {
-    // Si es la primera vez, se lanza el flujo inicial de permisos
+    // Si es la primera vez, se inicia el flujo inicial de permisos.
     pedirPermisosInicialesSiHaceFalta();
   }
 
   actualizarBarraCompacta();
 }
 
-// Arranca la aplicación al cargar el script
+// Arranca la app al cargar el script.
 iniciarApp();
