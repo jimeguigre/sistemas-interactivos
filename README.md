@@ -84,7 +84,7 @@ El movil probablemente avisara de que el certificado no es de confianza. Es norm
 ### 8. Detector de somnolencia
 - El usuario activa el detector desde el panel
 - Se accede a la camara frontal
-- Se detecta los ojos con MediaPipe
+- Se detectan los ojos con MediaPipe
 - Se calcula el EAR, que mide la apertura de ojos
 - Si los ojos permanecen cerrados un tiempo suficiente, se lanza una alarma sonora
 

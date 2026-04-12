@@ -284,8 +284,7 @@
       }
 
       .panel-mapa .leaflet-container {
-        height: calc(100vh - 118px);
-        min-height: 320px;
+        min-height: calc(100vh - 118px);
       }
     }
 
@@ -322,14 +321,8 @@
         grid-template-columns: 1fr;
       }
 
-      #mapaRutaCompartida {
-        height: 48vh;
-        min-height: 300px;
-      }
-
       .panel-mapa .leaflet-container {
-        height: 100%;
-        min-height: 100%;
+        min-height: 44vh;
       }
     }
   </style>
@@ -337,8 +330,8 @@
 <body>
   <div id="bloqueoRutaFinalizada">
     <div class="tarjeta-bloqueo">
-      <h2>La ruta ha terminado</h2>
-      <p>Este enlace ya no permite seguir la conduccion ni enviar mensajes.</p>
+      <h2>La ruta ha sido finalizada</h2>
+      <p>Este enlace ya no permite seguir la conduccion ni enviar mensajes</p>
     </div>
   </div>
 
@@ -357,7 +350,7 @@
       </section>
 
       <aside class="tarjeta panel-info">
-        <section id="panelEspectador" class="bloque">
+        <section id="panelEspectador" class="bloque oculto">
           <h2>Modo espectador</h2>
           <p class="texto-suave">Sigue la ruta en vivo y, si hace falta, manda un mensaje breve al conductor.</p>
           <div class="fila-mensaje-espectador">

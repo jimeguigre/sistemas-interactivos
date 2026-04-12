@@ -31,7 +31,7 @@ const valorUmbralSomnolenciaEl = document.getElementById("valorUmbralSomnolencia
 const valorTiempoSomnolenciaEl = document.getElementById("valorTiempoSomnolencia");
 
 // Umbral de Eye Aspect Ratio por debajo del cual se considera que el ojo está cerrado.
-// Cuanto más bajo sea este valor, más cerrado tiene que estar el ojo para detectarlo.
+// Cuanto más bajo sea este valor, más cerrado tiene que estar el ojo para detectarlo y al revés.
 const UMBRAL_OJO_CERRADO = 0.21;
 
 // Tiempo que ambos ojos deben permanecer cerrados para activar la alerta de somnolencia.
@@ -707,8 +707,8 @@ window.addEventListener("orientationchange", () => {
   }, 150);
 });
 
-// Si la app se recarga con somnolencia guardada como activa, este modulo se rearma solo.
-// Es un respaldo por si el evento inicial de app.js ocurre antes de que el modulo termine de cargar.
+// Si la app se recarga con somnolencia guardada como activa, este módulo se rearma solo.
+// Es un respaldo por si el evento inicial de app.js ocurre antes de que el módulo termine de cargar.
 setTimeout(() => {
   const privacidad = cargarPrivacidad();
   if (privacidad.camara && privacidad.somnolenciaEncendida) {
