@@ -706,3 +706,12 @@ window.addEventListener("orientationchange", () => {
     ajustarCanvasAlVideo();
   }, 150);
 });
+
+// Si la app se recarga con somnolencia guardada como activa, este modulo se rearma solo.
+// Es un respaldo por si el evento inicial de app.js ocurre antes de que el modulo termine de cargar.
+setTimeout(() => {
+  const privacidad = cargarPrivacidad();
+  if (privacidad.camara && privacidad.somnolenciaEncendida) {
+    iniciarDetectorSomnolencia();
+  }
+}, 0);

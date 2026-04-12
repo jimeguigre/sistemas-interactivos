@@ -23,6 +23,7 @@
       --rojo: #dc2626;
       --verde: #0f766e;
       --amarillo: #f59e0b;
+      --morado: #7c3aed;
       --sombra: 0 10px 30px rgba(0, 0, 0, 0.35);
       --radio: 14px;
       --espacio: 10px;
@@ -119,7 +120,7 @@
     /* Barra principal de trabajo: destino + crear ruta + empezar + avisos */
     .barra-herramientas {
       display: grid;
-      grid-template-columns: minmax(220px, 1.9fr) repeat(3, minmax(110px, 1fr));
+      grid-template-columns: minmax(220px, 1.9fr) repeat(4, minmax(100px, 1fr));
       gap: var(--espacio);
       align-items: center;
     }
@@ -155,6 +156,58 @@
     #botonMisAvisos {
       width: 100%;
       white-space: nowrap;
+    }
+
+    #cajaCompartirRuta {
+      position: relative;
+      min-width: 0;
+    }
+
+    #botonCompartirRuta {
+      width: 100%;
+      white-space: nowrap;
+      background: #0f766e;
+    }
+
+    #panelCompartirRuta {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      width: min(420px, calc(100vw - 24px));
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      background: var(--panel2);
+      border: 1px solid #475569;
+      border-radius: var(--radio);
+      box-shadow: var(--sombra);
+      z-index: 2000;
+      backdrop-filter: blur(12px);
+    }
+
+    .campo-enlace-compartido {
+      width: 100%;
+      background: #f8fafc;
+      color: #111827;
+    }
+
+    .fila-compartir-ruta {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .fila-compartir-ruta button {
+      min-width: 0;
+      width: 100%;
+      white-space: normal;
+    }
+
+    .texto-compartir-ruta {
+      margin: 0;
+      color: #d1d5db;
+      font-size: 13px;
+      line-height: 1.45;
     }
 
     /* Barras informativas bajo la cabecera */
@@ -332,6 +385,94 @@
     }
 
     .boton-somnolencia-apagar {
+      width: 100%;
+      background: #b91c1c;
+    }
+
+    /* Bloque de acciones del detector de frenazo */
+    .bloque-frenazo-acciones {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin: 14px 0 14px;
+      padding-top: 12px;
+      border-top: 1px solid #334155;
+    }
+
+    .boton-frenazo-encender {
+      width: 100%;
+      background: #0f766e;
+    }
+
+    .boton-frenazo-apagar {
+      width: 100%;
+      background: #b91c1c;
+    }
+
+    /* Modal para configurar el contacto de emergencia del detector de frenazo */
+    #modalContactoEmergencia {
+      position: fixed;
+      inset: 0;
+      z-index: 6500;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(4px);
+    }
+
+    #modalContactoEmergencia.abierto {
+      display: flex;
+    }
+
+    .ventanaContactoEmergencia {
+      width: min(520px, 94vw);
+      background: rgba(17, 24, 39, 0.98);
+      color: white;
+      border: 1px solid #475569;
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.45);
+    }
+
+    .ventanaContactoEmergencia h2 {
+      margin: 0 0 10px 0;
+      font-size: 1.1rem;
+    }
+
+    .ventanaContactoEmergencia p {
+      margin: 0 0 14px 0;
+      color: #d1d5db;
+      line-height: 1.45;
+      font-size: 14px;
+    }
+
+    .ventanaContactoEmergencia .campo-contacto {
+      width: 100%;
+      margin-bottom: 10px;
+    }
+
+    .texto-error-contacto {
+      min-height: 18px;
+      margin: 4px 0 12px 0;
+      color: #fca5a5;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .boton-confirmar-contacto {
+      width: 100%;
+      background: var(--verde);
+    }
+
+    .acciones-contacto-emergencia {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .boton-cancelar-contacto {
       width: 100%;
       background: #b91c1c;
     }
@@ -554,8 +695,18 @@
     /* Ajustes para pantallas algo más pequeñas pero manteniendo horizontal */
     @media (max-width: 1100px) and (orientation: landscape) {
       .barra-herramientas {
-        grid-template-columns: minmax(180px, 1.8fr) repeat(3, minmax(92px, 1fr));
+        grid-template-columns: minmax(180px, 1.8fr) repeat(4, minmax(92px, 1fr));
         gap: 8px;
+      }
+
+      #panelCompartirRuta {
+        position: fixed;
+        top: calc(env(safe-area-inset-top, 0px) + 112px);
+        left: 50%;
+        right: auto;
+        width: min(360px, calc(100vw - 40px));
+        max-height: calc(100dvh - 132px);
+        transform: translateX(-50%);
       }
 
       input, button {
@@ -575,6 +726,14 @@
 
       .cuerpoSomnolencia {
         grid-template-columns: minmax(300px, 2fr) minmax(250px, 1fr);
+      }
+    }
+
+    /* En pantallas estrechas los botones pasan a una columna para no salirse */
+    @media (max-width: 640px) {
+      .fila-compartir-ruta,
+      .acciones-contacto-emergencia {
+        grid-template-columns: 1fr;
       }
     }
 
@@ -616,9 +775,15 @@
 
       <!-- Controles del detector de somnolencia -->
       <div class="bloque-somnolencia-acciones">
-        <button id="verSomnolencia" class="boton-somnolencia-ver">Ver detector</button>
-        <button id="encenderSomnolencia" class="boton-somnolencia-encender">Encender detector</button>
-        <button id="apagarSomnolencia" class="boton-somnolencia-apagar">Apagar detector</button>
+        <button id="verSomnolencia" class="boton-somnolencia-ver">Ver detector de somnolencia</button>
+        <button id="encenderSomnolencia" class="boton-somnolencia-encender">Encender detector de somnolencia</button>
+        <button id="apagarSomnolencia" class="boton-somnolencia-apagar">Apagar detector de somnolencia</button>
+      </div>
+
+      <!-- Controles del detector de frenazo -->
+      <div class="bloque-frenazo-acciones">
+        <button id="encenderFrenazo" class="boton-frenazo-encender">Encender detector de frenazo</button>
+        <button id="apagarFrenazo" class="boton-frenazo-apagar">Apagar detector de frenazo</button>
       </div>
 
       <h3>Privacidad y control</h3>
@@ -642,18 +807,25 @@
       <p>Micrófono: reconocimiento de voz.</p>
       <p>Ubicación: GPS real del dispositivo para navegación y avisos.</p>
       <p>Cámara: necesaria para usar el detector de somnolencia.</p>
+      <p>Frenazo: usa el sensor de movimiento del móvil cuando enciendes el detector.</p>
     </div>
 
     <!-- Panel de ayuda resumida -->
     <div id="panelAyuda">
-     <button id="cerrarAyuda" class="boton-cerrar">×</button>
+      <button id="cerrarAyuda" class="boton-cerrar">×</button>
       <h3>Qué puede hacer el programa</h3>
 
       <p><b>Orientación:</b> la aplicación está preparada para usarse en horizontal.</p>
-      <p><b>Permisos:</b> al entrar por primera vez puede pedir micrófono, ubicación y cámara. Luego puedes cambiarlos desde ☰.</p>
+      <p><b>Permisos:</b> al entrar por primera vez la app puede pedir micrófono, ubicación y cámara. Los detectores se activan con sus botones y empiezan apagados.</p>
+      <p><b>Micrófono:</b> se guarda como preferencia. Si el navegador lo pausa al recargar, toca la pantalla para reactivar la escucha.</p>
       <p><b>Crear ruta:</b> escribe un destino y pulsa “Crear ruta”.</p>
       <p><b>Empezar ruta:</b> inicia la navegación real con GPS.</p>
+      <p><b>Compartir ruta:</b> cuando ya has creado una ruta puedes generar un enlace para compartirla con otra persona de la misma red. Si vuelves a pulsar el botón, el panel se cierra.</p>
+      <p><b>Enlace compartido:</b> el panel te deja copiar o compartir la URL generada con la IP local del servidor y está adaptado para móvil.</p>
+      <p><b>Modo espectador:</b> la otra persona puede ver tu posición, el destino y el recorrido actualizado en tiempo real.</p>
+      <p><b>Mensajes del contacto:</b> el espectador puede enviarte mensajes y la app los lee por voz cuando termina la locución que ya estuviera sonando.</p>
       <p><b>Salir de conducción:</b> detiene la ruta actual, el seguimiento GPS y limpia la ruta del mapa.</p>
+      <p><b>Fin del enlace compartido:</b> al salir de conducción el enlace deja de funcionar y el espectador ya no puede seguir usando esa sesión.</p>
       <p><b>Recalcular ruta:</b> si te alejas lo suficiente de la ruta, el sistema intenta recalcular automáticamente desde tu posición actual.</p>
       <p><b>Crear avisos por voz:</b> puedes decir “aviso”, responder “sí” o “no” y dictar el motivo.</p>
       <p><b>Borrar avisos por voz:</b> puedes decir “borrar aviso” cuando hayas pasado por él y no haya mucha distancia.</p>
@@ -661,8 +833,10 @@
       <p><b>Avisos compartidos:</b> cuando un cliente crea o borra un aviso, los demás lo reciben en tiempo real.</p>
       <p><b>Filtrado por ruta:</b> solo se muestran en el mapa los avisos cercanos a tu ruta actual.</p>
       <p><b>Detector de somnolencia:</b> “Encender detector” lo activa, “Apagar detector” lo detiene y “Ver detector” solo abre la ventana.</p>
-      <p><b>Funcionamiento del detector:</b> usa la cámara frontal para medir el cierre de ojos y lanzar una alerta si detecta posible somnolencia.</p>
-      <p class="nota">La precisión del GPS, del reconocimiento de voz y del detector depende del dispositivo, la luz, la cobertura y los permisos del sistema.</p>
+      <p><b>Detector de frenazo:</b> “Encender detector de frenazo” abre un popup para indicar el contacto de emergencia. “Confirmar” guarda el contacto y lo activa; “Salir” cierra el popup sin encenderlo.</p>
+      <p><b>Funcionamiento del frenazo:</b> usa el sensor de movimiento del móvil, no necesita ruta iniciada y pregunta si estás bien antes de avisar al contacto.</p>
+      <p><b>Emergencia por frenazo:</b> si respondes que estás bien se cancela el correo. Si dices que necesitas ayuda o no respondes a tiempo, se envía el email de emergencia.</p>
+      <p class="nota">La precisión del GPS, del reconocimiento de voz, del detector y del seguimiento compartido depende del dispositivo, la luz, la cobertura, la red local y los permisos del sistema.</p>
     </div>
 
     <!-- Barra principal de interacción -->
@@ -670,6 +844,17 @@
       <input id="destinoInput" type="text" placeholder="Destino. Ej: Atocha, Madrid" />
       <button id="botonCrearRuta">Crear ruta</button>
       <button id="botonEmpezarRuta">Empezar ruta</button>
+      <div id="cajaCompartirRuta">
+        <button id="botonCompartirRuta">Compartir ruta</button>
+        <div id="panelCompartirRuta" class="oculto">
+          <input id="enlaceRutaCompartida" class="campo-enlace-compartido" type="text" readonly />
+          <div class="fila-compartir-ruta">
+            <button id="botonCopiarRutaCompartida" type="button">Copiar enlace</button>
+            <button id="botonCompartirRutaNativo" type="button">Compartir</button>
+          </div>
+          <p id="textoEstadoRutaCompartida" class="texto-compartir-ruta">Crea una ruta para generar el enlace compartido.</p>
+        </div>
+      </div>
 
       <!-- Panel desplegable con avisos creados por el usuario -->
       <div id="cajaMisAvisos">
@@ -690,6 +875,39 @@
 
   <!-- Contenedor principal del mapa -->
   <div id="mapa"></div>
+
+  <!-- Modal para configurar el contacto de emergencia del detector de frenazo -->
+  <div id="modalContactoEmergencia">
+    <div class="ventanaContactoEmergencia">
+      <h2>Contacto de emergencia</h2>
+      <p>Rellena el nombre y el correo del contacto de emergencia. Los dos campos son obligatorios.</p>
+
+      <input
+        id="inputNombreContactoEmergencia"
+        class="campo-contacto"
+        type="text"
+        placeholder="Nombre del contacto de emergencia"
+      />
+
+      <input
+        id="inputEmailContactoEmergencia"
+        class="campo-contacto"
+        type="email"
+        placeholder="Email del contacto de emergencia"
+      />
+
+      <div id="errorContactoEmergencia" class="texto-error-contacto"></div>
+
+      <div class="acciones-contacto-emergencia">
+        <button id="botonCancelarContactoEmergencia" class="boton-cancelar-contacto" type="button">
+          Salir
+        </button>
+        <button id="botonConfirmarContactoEmergencia" class="boton-confirmar-contacto" type="button">
+          Confirmar
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Modal del detector de somnolencia -->
   <div id="modalSomnolencia">
@@ -767,6 +985,8 @@
 
   <!-- Lógica principal de la aplicación -->
   <script src="app.js"></script>
+  <script src="compartir-ruta.js"></script>
+  <script src="frenazo.js"></script>
 
   <!-- Lógica del detector de somnolencia como módulo separado -->
   <script type="module" src="drowsiness.js"></script>

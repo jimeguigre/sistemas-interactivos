@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ruta compartida en tiempo real</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root {
+      --fondo: #111827;
+      --fondo-secundario: #0f172a;
+      --panel: rgba(17, 24, 39, 0.96);
+      --panel-claro: rgba(30, 41, 59, 0.96);
+      --borde: #374151;
+      --texto: #ffffff;
+      --texto-suave: #cbd5e1;
+      --azul: #2563eb;
+      --azul-hover: #1d4ed8;
+      --verde: #0f766e;
+      --rojo: #b91c1c;
+      --sombra: 0 20px 46px rgba(0, 0, 0, 0.35);
+      --radio: 22px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--texto);
+      background:
+        radial-gradient(circle at top left, rgba(37, 99, 235, 0.18), transparent 32%),
+        radial-gradient(circle at top right, rgba(15, 118, 110, 0.18), transparent 28%),
+        linear-gradient(180deg, var(--fondo) 0%, var(--fondo-secundario) 100%);
+    }
+
+    body {
+      padding: 24px;
+    }
+
+    .pagina {
+      width: min(1480px, 100%);
+      margin: 0 auto;
+      display: grid;
+      gap: 24px;
+    }
+
+    .cabecera {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 24px 28px;
+      border: 1px solid var(--borde);
+      border-radius: var(--radio);
+      background: var(--panel);
+      box-shadow: var(--sombra);
+      backdrop-filter: blur(10px);
+    }
+
+    .cabecera__texto h1 {
+      margin: 0 0 8px 0;
+      font-size: clamp(1.55rem, 2.6vw, 2.25rem);
+      line-height: 1.1;
+    }
+
+    .cabecera__texto p {
+      margin: 0;
+      color: var(--texto-suave);
+      line-height: 1.55;
+    }
+
+    .insignia-modo {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 170px;
+      padding: 12px 16px;
+      border: 1px solid var(--borde);
+      border-radius: 999px;
+      background: var(--panel-claro);
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .contenido {
+      display: grid;
+      grid-template-columns: minmax(0, 1.9fr) minmax(340px, 420px);
+      gap: 24px;
+      align-items: stretch;
+    }
+
+    .tarjeta {
+      border: 1px solid var(--borde);
+      border-radius: var(--radio);
+      background: var(--panel);
+      box-shadow: var(--sombra);
+      backdrop-filter: blur(10px);
+    }
+
+    .panel-mapa {
+      display: flex;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    #mapaRutaCompartida {
+      width: 100%;
+      height: min(78vh, 920px);
+      min-height: 360px;
+      background: #0b1220;
+    }
+
+    .panel-mapa .leaflet-container {
+      height: 100%;
+      min-height: 100%;
+      border-radius: var(--radio);
+    }
+
+    .panel-info {
+      display: grid;
+      align-content: start;
+      gap: 18px;
+      padding: 24px;
+    }
+
+    .bloque {
+      padding: 22px;
+      border: 1px solid rgba(55, 65, 81, 0.85);
+      border-radius: 18px;
+      background: rgba(15, 23, 42, 0.88);
+    }
+
+    .bloque h2 {
+      margin: 0 0 14px 0;
+      font-size: 1.02rem;
+    }
+
+    .texto-suave {
+      margin: 0;
+      color: var(--texto-suave);
+      line-height: 1.6;
+      font-size: 13px;
+    }
+
+    .lista-datos {
+      display: grid;
+      gap: 14px;
+    }
+
+    .dato {
+      padding: 16px 18px;
+      border: 1px solid rgba(55, 65, 81, 0.75);
+      border-radius: 16px;
+      background: rgba(15, 23, 42, 0.96);
+      line-height: 1.55;
+      color: var(--texto-suave);
+    }
+
+    textarea,
+    button {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--borde);
+      padding: 13px 15px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+
+    textarea {
+      background: #f8fafc;
+      color: #111827;
+    }
+
+    textarea {
+      min-height: 116px;
+      resize: vertical;
+    }
+
+    button {
+      background: var(--azul);
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.18s ease, background 0.18s ease, opacity 0.18s ease;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      background: var(--azul-hover);
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .fila-mensaje-espectador {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 150px;
+      gap: 14px;
+      align-items: start;
+      margin-top: 16px;
+    }
+
+    #textoEstadoMensajes {
+      margin-top: 12px;
+    }
+
+    #bloqueoRutaFinalizada {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(2, 6, 23, 0.94);
+      backdrop-filter: blur(6px);
+    }
+
+    #bloqueoRutaFinalizada.visible {
+      display: flex;
+    }
+
+    .tarjeta-bloqueo {
+      width: min(560px, 92vw);
+      padding: 24px;
+      border: 1px solid #334155;
+      border-radius: 20px;
+      background: #111827;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+      text-align: center;
+    }
+
+    .tarjeta-bloqueo h2 {
+      margin: 0 0 10px 0;
+    }
+
+    .tarjeta-bloqueo p {
+      margin: 0;
+      color: var(--texto-suave);
+      line-height: 1.5;
+    }
+
+    .oculto {
+      display: none !important;
+    }
+
+    @media (max-width: 1100px) and (orientation: landscape) {
+      body {
+        padding: 16px;
+      }
+
+      .pagina {
+        gap: 16px;
+      }
+
+      .cabecera {
+        padding: 18px 20px;
+      }
+
+      .contenido {
+        grid-template-columns: minmax(0, 1.5fr) minmax(290px, 350px);
+        gap: 16px;
+      }
+
+      .panel-info {
+        padding: 18px;
+        gap: 16px;
+      }
+
+      .bloque {
+        padding: 18px;
+      }
+
+      .fila-mensaje-espectador {
+        grid-template-columns: minmax(0, 1fr) 124px;
+        gap: 10px;
+      }
+
+      .panel-mapa .leaflet-container {
+        height: calc(100vh - 118px);
+        min-height: 320px;
+      }
+    }
+
+    @media (max-width: 900px) {
+      body {
+        padding: 14px;
+      }
+
+      .pagina {
+        gap: 14px;
+      }
+
+      .cabecera {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 18px;
+      }
+
+      .contenido {
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
+
+      .panel-info {
+        padding: 18px;
+        gap: 14px;
+      }
+
+      .bloque {
+        padding: 18px;
+      }
+
+      .fila-mensaje-espectador {
+        grid-template-columns: 1fr;
+      }
+
+      #mapaRutaCompartida {
+        height: 48vh;
+        min-height: 300px;
+      }
+
+      .panel-mapa .leaflet-container {
+        height: 100%;
+        min-height: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="bloqueoRutaFinalizada">
+    <div class="tarjeta-bloqueo">
+      <h2>La ruta ha terminado</h2>
+      <p>Este enlace ya no permite seguir la conduccion ni enviar mensajes.</p>
+    </div>
+  </div>
+
+  <div class="pagina">
+    <header class="cabecera">
+      <div class="cabecera__texto">
+        <h1>Ruta compartida en tiempo real</h1>
+        <p>Seguimiento en vivo del trayecto y mensajes directos al conductor.</p>
+      </div>
+      <div id="insigniaModo" class="insignia-modo">Cargando modo...</div>
+    </header>
+
+    <main class="contenido">
+      <section class="tarjeta panel-mapa">
+        <div id="mapaRutaCompartida"></div>
+      </section>
+
+      <aside class="tarjeta panel-info">
+        <section id="panelEspectador" class="bloque">
+          <h2>Modo espectador</h2>
+          <p class="texto-suave">Sigue la ruta en vivo y, si hace falta, manda un mensaje breve al conductor.</p>
+          <div class="fila-mensaje-espectador">
+            <textarea id="campoMensajeEspectador" placeholder="Escribe un mensaje para el conductor"></textarea>
+            <button id="botonEnviarMensajeEspectador">Enviar mensaje</button>
+          </div>
+          <p id="textoEstadoMensajes" class="texto-suave"></p>
+        </section>
+
+        <section class="bloque">
+          <h2>Datos de la ruta</h2>
+          <div class="lista-datos">
+            <div id="datoCodigoRuta" class="dato">Codigo: sin sesion compartida</div>
+            <div id="datoDestinoRuta" class="dato">Destino: sin ruta creada</div>
+            <div id="datoEstadoRuta" class="dato">Estado: esperando accion</div>
+            <div id="datoPosicionRuta" class="dato">Posicion: sin datos GPS</div>
+          </div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <div id="estadoGeneralRutaCompartida" class="oculto">Preparando aplicacion...</div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/ruta-compartida.js"></script>
+</body>
+</html>

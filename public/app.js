@@ -1,4 +1,3 @@
-
 // REFERENCIAS A LA INTERFAZ
 
 
@@ -44,6 +43,10 @@ const encenderSomnolenciaEl = document.getElementById("encenderSomnolencia");
 const apagarSomnolenciaEl = document.getElementById("apagarSomnolencia");
 // Botón que muestra los avisos creados por este cliente.
 const botonMisAvisosEl = document.getElementById("botonMisAvisos");
+// Botón que enciende el detector de frenazo.
+const encenderFrenazoEl = document.getElementById("encenderFrenazo");
+// Botón que apaga el detector de frenazo.
+const apagarFrenazoEl = document.getElementById("apagarFrenazo");
 // Panel desplegable con la lista de avisos propios.
 const panelMisAvisosEl = document.getElementById("panelMisAvisos");
 // Modal completo del detector de somnolencia.
@@ -89,13 +92,13 @@ const RETARDO_ESTADO_CONDUCCION_MS = 5000;
 
 // Conexión con el servidor usando Socket.IO para compartir avisos en tiempo real.
 const socket = io();
+window.socketPrincipal = socket;
 
 
 
 // ESTADO DE PRIVACIDAD
 
 
-// Objeto central con los permisos y estados persistentes del usuario.
 const privacidad = {
   // Permite o bloquea reconocimiento de voz.
   microfono: false,
@@ -108,6 +111,15 @@ const privacidad = {
 
   // Indica si el detector de somnolencia debe estar encendido.
   somnolenciaEncendida: false,
+
+  // Indica si el detector de frenazo debe estar encendido.
+  frenazoEncendido: false,
+
+  // Nombre del contacto de emergencia.
+  contactoEmergenciaNombre: "",
+
+  // Email del contacto de emergencia.
+  contactoEmergenciaEmail: "",
 
   // Indica si ya se pidió la configuración inicial alguna vez.
   inicializado: false
@@ -156,6 +168,8 @@ let ultimoMomentoAviso = 0;
 let reconocimiento = null;
 // Bandera que indica si el reconocimiento está escuchando ahora mismo.
 let reconocimientoActivo = false;
+// Evita guardar como "apagado" un fallo puntual del navegador al iniciar la voz.
+let microfonoPausadoPorError = false;
 // Bandera que indica si la app está hablando y, por tanto, no debe escuchar.
 let hablando = false;
 // Temporizador para reiniciar el micro con un pequeño retardo.
@@ -174,6 +188,14 @@ let temporizadorEstadoConduccion = null;
 let watchIdGPS = null;
 // Indica si ya se obtuvo la primera posición GPS válida.
 let primerFixGPS = false;
+// Cola secuencial de locuciones pendientes para no pisar mensajes de voz.
+let colaLocuciones = [];
+// Bandera que indica si hay una locucion activa en este momento.
+let locucionEnCurso = false;
+// Bloquea la voz normal mientras el frenazo espera una respuesta de emergencia.
+let vozPrincipalBloqueadaPorEmergencia = false;
+// Gestor temporal que tiene prioridad sobre comandos normales como "aviso".
+let gestorVozUrgente = null;
 
 
 
@@ -225,6 +247,28 @@ function resetearPendientes() {
 
   // Se vuelve al estado neutral esperando un nuevo comando.
   ponerEstadoApp("esperando_comando");
+}
+
+// Devuelve una copia segura del estado relevante para compartir la ruta.
+function obtenerEstadoRutaCompartida() {
+  return {
+    posicionActual: posicionActual ? { ...posicionActual } : null,
+    textoDestinoActual,
+    latLngDestinoActual: latLngDestinoActual ? { lat: latLngDestinoActual.lat, lng: latLngDestinoActual.lng } : null,
+    coordenadasRuta: coordenadasRuta.map(p => ({ lat: p.lat, lng: p.lng })),
+    enConduccion,
+    rutaDisponible: coordenadasRuta.length > 0
+  };
+}
+
+// Emite un evento global para que otros scripts conozcan el estado de la ruta.
+function notificarEstadoRutaCompartida(origen = "general") {
+  window.dispatchEvent(new CustomEvent("ruta-compartida:estado", {
+    detail: {
+      origen,
+      ...obtenerEstadoRutaCompartida()
+    }
+  }));
 }
 
 // Cierra todos los paneles flotantes.
@@ -386,6 +430,9 @@ function cargarPrivacidad() {
     if (typeof datos.camara === "boolean") privacidad.camara = datos.camara;
     if (typeof datos.somnolenciaEncendida === "boolean") privacidad.somnolenciaEncendida = datos.somnolenciaEncendida;
     if (typeof datos.inicializado === "boolean") privacidad.inicializado = datos.inicializado;
+    if (typeof datos.frenazoEncendido === "boolean") privacidad.frenazoEncendido = datos.frenazoEncendido;
+    if (typeof datos.contactoEmergenciaNombre === "string") privacidad.contactoEmergenciaNombre = datos.contactoEmergenciaNombre;
+    if (typeof datos.contactoEmergenciaEmail === "string") privacidad.contactoEmergenciaEmail = datos.contactoEmergenciaEmail;
   } catch {
     // Si el contenido está dañado o no es JSON válido, se reinicia a valores seguros.
     privacidad.microfono = false;
@@ -393,12 +440,31 @@ function cargarPrivacidad() {
     privacidad.camara = false;
     privacidad.somnolenciaEncendida = false;
     privacidad.inicializado = false;
+    privacidad.frenazoEncendido = false;
+    privacidad.contactoEmergenciaNombre = "";
+    privacidad.contactoEmergenciaEmail = "";
   }
 }
 
 // Guarda en localStorage la configuración actual del usuario.
 function guardarPrivacidad() {
   localStorage.setItem(CLAVE_PRIVACIDAD, JSON.stringify(privacidad));
+}
+
+// Guarda solo algunos campos para no pisar permisos al hacer cambios puntuales.
+function guardarPrivacidadParcial(parcial) {
+  let actual = {};
+
+  try {
+    actual = JSON.parse(localStorage.getItem(CLAVE_PRIVACIDAD) || "{}");
+  } catch {
+    actual = {};
+  }
+
+  localStorage.setItem(CLAVE_PRIVACIDAD, JSON.stringify({
+    ...actual,
+    ...parcial
+  }));
 }
 
 // Hace que la interfaz refleje el estado real del objeto privacidad.
@@ -426,7 +492,11 @@ function actualizarResumenSensores() {
   const partes = [];
 
   // Se describe si el micrófono está activo o no.
-  partes.push(privacidad.microfono ? "Micrófono activo" : "Micrófono desactivado");
+  if (privacidad.microfono && microfonoPausadoPorError) {
+    partes.push("Micrófono pendiente de reactivar");
+  } else {
+    partes.push(privacidad.microfono ? "Micrófono activo" : "Micrófono desactivado");
+  }
 
   // Se describe si la ubicación está disponible o desactivada.
   partes.push(
@@ -443,6 +513,9 @@ function actualizarResumenSensores() {
   } else {
     partes.push("Somnolencia apagada");
   }
+
+  // Se resume el estado del detector de frenazo.
+  partes.push(privacidad.frenazoEncendido ? "Frenazo encendido" : "Frenazo apagado");
 
   // Se unen todos los fragmentos con separador visual.
   ponerEstadoSensores(partes.join(" | "));
@@ -522,6 +595,7 @@ async function pedirPermisoCamara() {
 function ponerPermisoMicrofono(valor) {
   // Se actualiza el estado interno.
   privacidad.microfono = valor;
+  microfonoPausadoPorError = false;
 
   // Se refleja en la casilla visual.
   usarMicrofonoEl.checked = valor;
@@ -538,6 +612,14 @@ function ponerPermisoMicrofono(valor) {
   }
 
   actualizarResumenSensores();
+}
+
+// Pausa la escucha por un error del navegador sin borrar la preferencia guardada.
+function pausarMicrofonoPorError(textoEstado) {
+  microfonoPausadoPorError = true;
+  pararReconocimiento();
+  usarMicrofonoEl.checked = privacidad.microfono;
+  ponerEstadoSensores(textoEstado);
 }
 
 // Activa o desactiva la ubicación.
@@ -615,6 +697,9 @@ async function pedirPermisosInicialesSiHaceFalta() {
   // Aunque la cámara esté permitida, el detector empieza apagado por diseño.
   privacidad.somnolenciaEncendida = false;
 
+  // El detector de frenazo siempre empieza apagado al entrar en la app.
+  privacidad.frenazoEncendido = false;
+
   // A partir de ahora ya no se considera "primera vez".
   privacidad.inicializado = true;
   guardarPrivacidad();
@@ -626,7 +711,43 @@ async function pedirPermisosInicialesSiHaceFalta() {
   // Si hay permiso de ubicación, se inicia el seguimiento GPS.
   if (okUbicacion) iniciarWatchGPS();
 
-  ponerEstado("Permisos iniciales revisados. Puedes cambiarlos en Privacidad");
+  ponerEstado("Permisos iniciales revisados. Puedes usar los detectores desde Privacidad");
+}
+
+// Prepara la solicitud automática de permisos sin mostrar botones específicos para ello.
+function prepararSolicitudPermisosIniciales() {
+  // No se obliga al usuario a pulsar un botón de permiso concreto.
+  // Basta con la primera interacción normal con la app para lanzar la solicitud inicial.
+  ponerEstado("Toca la pantalla para iniciar el sistema");
+
+  const pedir = () => {
+    window.removeEventListener("pointerdown", pedir);
+    window.removeEventListener("keydown", pedir);
+    pedirPermisosInicialesSiHaceFalta();
+  };
+
+  window.addEventListener("pointerdown", pedir, { once: true });
+  window.addEventListener("keydown", pedir, { once: true });
+}
+
+
+
+// CONTROL DEL DETECTOR DE FRENADO
+
+// Enciende el detector de frenazo.
+// El contacto de emergencia se pide o se edita en el propio flujo del módulo frenazo.
+function encenderDetectorFrenazo() {
+  // Se envía un evento al módulo específico de frenazo.
+  window.dispatchEvent(new CustomEvent("frenazo:activar"));
+
+  ponerEstado("Configurando detector de frenazo...");
+}
+
+// Apaga completamente el detector de frenazo.
+function apagarDetectorFrenazo() {
+  // Se avisa al módulo de frenazo para parar escucha y flujo interno.
+  window.dispatchEvent(new CustomEvent("frenazo:detener"));
+
 }
 
 
@@ -672,46 +793,134 @@ function apagarDetectorSomnolencia() {
 
 // SÍNTESIS DE VOZ
 
+// Procesa de forma secuencial las locuciones pendientes.
+function procesarColaLocuciones() {
+  // Si ya hay una locucion en curso o la cola esta vaci­a, no se hace nada.
+  if (locucionEnCurso || colaLocuciones.length === 0) return;
 
-// Hace que la aplicación hable usando SpeechSynthesis.
-function hablar(texto, callback = null) {
+  // Se extrae el siguiente mensaje pendiente.
+  const siguiente = colaLocuciones.shift();
+
   // Mientras la app habla, no debe escuchar.
   hablando = true;
+  locucionEnCurso = true;
 
   // Se para el reconocimiento para evitar que escuche su propia voz.
   pararReconocimiento();
 
-  // Se cancela cualquier locución previa para que no se encimen mensajes.
-  speechSynthesis.cancel();
-
-  const utterance = new SpeechSynthesisUtterance(texto);
+  const utterance = new SpeechSynthesisUtterance(siguiente.texto);
   utterance.lang = "es-ES";
   utterance.rate = 1;
 
   utterance.onend = () => {
-    // Cuando termina, ya no está hablando.
+    // Cuando termina, ya no hay una locución activa.
     hablando = false;
-
-    // Se refresca el texto de sensores por si depende del estado de audio.
+    locucionEnCurso = false;
     actualizarResumenSensores();
-
-    // Se reinicia el reconocimiento con un pequeño retardo.
     iniciarReconocimientoConRetardo(120);
-
-    // Si se pasó callback, se ejecuta al final.
-    if (callback) callback();
+    if (siguiente.callback) siguiente.callback();
+    procesarColaLocuciones();
   };
 
   utterance.onerror = () => {
-    // Si falla la síntesis, igualmente se recupera el estado normal.
+    // Incluso si falla, se libera el bloqueo y se intenta seguir con la cola.
     hablando = false;
+    locucionEnCurso = false;
     actualizarResumenSensores();
     iniciarReconocimientoConRetardo(120);
-    if (callback) callback();
+    if (siguiente.callback) siguiente.callback();
+    procesarColaLocuciones();
   };
 
-  // Se lanza la locución.
+  // Se lanza la locucion actual.
   speechSynthesis.speak(utterance);
+}
+
+// Redefine la sintesis para que use una cola y no pise mensajes anteriores.
+function hablar(texto, callback = null) {
+  // Si no hay texto real, no se encola nada.
+  if (!texto) return;
+
+  // Se guarda el mensaje al final de la cola.
+  colaLocuciones.push({ texto, callback });
+
+  // Se intenta procesar la cola ahora mismo.
+  procesarColaLocuciones();
+}
+
+// Corta de inmediato solo la locucion actual, pero NO vacia la cola pendiente.
+function interrumpirLocucionActual() {
+  // Si no estaba hablando, no hace falta cortar nada.
+  if (!hablando && !locucionEnCurso) return false;
+
+  // Se intenta cancelar la locucion activa del navegador.
+  try {
+    speechSynthesis.cancel();
+  } catch {}
+
+  // Se libera el estado interno para poder meter un mensaje urgente.
+  hablando = false;
+  locucionEnCurso = false;
+  actualizarResumenSensores();
+
+  return true;
+}
+
+// Interrumpe lo que suena ahora mismo y habla algo urgente sin borrar la cola.
+function interrumpirYHablarUrgente(texto, callback = null) {
+  // Se corta solo la locucion en curso.
+  interrumpirLocucionActual();
+
+  // Se detiene temporalmente el micro para evitar escucharse a si misma.
+  pararReconocimiento();
+
+  // Se inserta el mensaje urgente al principio de la cola.
+  colaLocuciones.unshift({ texto, callback });
+
+  // Se fuerza el procesamiento inmediato de la cola.
+  procesarColaLocuciones();
+}
+
+// Reanuda las locuciones normales si habia mensajes pendientes.
+function reanudarLocucionesNormales() {
+  if (locucionEnCurso) return;
+  procesarColaLocuciones();
+}
+
+// Permite escribir un estado urgente desde otros modulos.
+function ponerEstadoUrgente(texto) {
+  ponerEstado(texto);
+}
+
+// Devuelve si ahora mismo habia una locucion en curso.
+function hayLocucionEnCurso() {
+  return !!locucionEnCurso;
+}
+// Pausa el reconocimiento normal para que una emergencia no confirme avisos por error.
+function bloquearVozPrincipalPorEmergencia() {
+  vozPrincipalBloqueadaPorEmergencia = true;
+  resetearPendientes();
+  pararReconocimiento();
+}
+
+// Devuelve la voz normal a la app cuando termina el flujo urgente.
+function desbloquearVozPrincipalPorEmergencia() {
+  vozPrincipalBloqueadaPorEmergencia = false;
+  gestorVozUrgente = null;
+  if (privacidad.microfono) iniciarReconocimientoConRetardo(250);
+}
+
+// Registra una interpretacion urgente que se ejecuta antes que los comandos normales.
+function registrarGestorVozUrgente(gestor) {
+  gestorVozUrgente = typeof gestor === "function" ? gestor : null;
+  if (privacidad.microfono) iniciarReconocimientoConRetardo(150);
+}
+
+// Quita la interpretacion urgente y vuelve al flujo normal.
+function limpiarGestorVozUrgente(gestor = null) {
+  if (!gestor || gestorVozUrgente === gestor) {
+    gestorVozUrgente = null;
+  }
 }
 
 
@@ -767,21 +976,26 @@ function crearReconocimiento() {
     ultimoMomentoComando = ahora;
 
     // Se delega la interpretación al gestor del flujo de voz.
+    if (gestorVozUrgente) {
+      const consumido = gestorVozUrgente(texto);
+      if (consumido !== false) return;
+    }
+
+    if (vozPrincipalBloqueadaPorEmergencia) return;
+
     gestionarComandoVoz(texto);
   };
 
   rec.onerror = (event) => {
     if (event.error === "not-allowed") {
-      // Si el navegador dice que no hay permiso, se refleja en la app.
-      ponerPermisoMicrofono(false);
-      ponerEstadoSensores("Activa permisos de micrófono");
+      // Se pausa sin borrar la preferencia guardada; a veces ocurre al recargar.
+      pausarMicrofonoPorError("Toca la pantalla para reactivar el micrófono");
       return;
     }
 
     if (event.error === "audio-capture") {
-      // Si no hay fuente de audio disponible, se desactiva el micro.
-      ponerPermisoMicrofono(false);
-      ponerEstadoSensores("No se detecta micrófono");
+      // Se pausa sin desactivar el ajuste, por si el dispositivo libera el micro despues.
+      pausarMicrofonoPorError("No se detecta micrófono. Reintentará al tocar la pantalla");
       return;
     }
 
@@ -805,7 +1019,7 @@ function crearReconocimiento() {
     reconocimientoActivo = false;
 
     // Si no está hablando y el permiso sigue activo, se relanza automáticamente.
-    if (!hablando && privacidad.microfono) iniciarReconocimientoConRetardo(150);
+    if (!hablando && privacidad.microfono && (!vozPrincipalBloqueadaPorEmergencia || gestorVozUrgente) && !microfonoPausadoPorError) iniciarReconocimientoConRetardo(150);
   };
 
   return rec;
@@ -819,7 +1033,8 @@ function iniciarReconocimiento() {
   }
 
   // Si no existe, ya está activo o la app está hablando, no se inicia.
-  if (!reconocimiento || reconocimientoActivo || hablando) return;
+  if (!reconocimiento || reconocimientoActivo || hablando || microfonoPausadoPorError) return;
+  if (vozPrincipalBloqueadaPorEmergencia && !gestorVozUrgente) return;
 
   try {
     reconocimiento.start();
@@ -843,6 +1058,20 @@ function iniciarReconocimientoConRetardo(ms = 150) {
   clearTimeout(temporizadorReinicioMicro);
   temporizadorReinicioMicro = setTimeout(iniciarReconocimiento, ms);
 }
+
+
+
+// Si el navegador bloquea la voz al arrancar, una nueva pulsacion permite reintentarlo.
+function reintentarMicrofonoPausado() {
+  if (!microfonoPausadoPorError || !privacidad.microfono) return;
+
+  microfonoPausadoPorError = false;
+  ponerEstadoSensores("Reactivando micrófono...");
+  iniciarReconocimientoConRetardo(150);
+}
+
+window.addEventListener("pointerdown", reintentarMicrofonoPausado);
+window.addEventListener("keydown", reintentarMicrofonoPausado);
 
 
 
@@ -884,6 +1113,7 @@ function iniciarWatchGPS() {
 
       // Se guarda la posición actual completa.
       posicionActual = { lat, lng, accuracy };
+      notificarEstadoRutaCompartida("gps");
 
       // Se actualiza el marcador del usuario en el mapa.
       actualizarPosicionUsuario(lat, lng);
@@ -1015,6 +1245,7 @@ function limpiarRuta() {
   resetearLineasRuta();
   refrescarVisibilidadAvisos();
   actualizarBarraCompacta();
+  notificarEstadoRutaCompartida("ruta_limpiada");
 }
 
 
@@ -1245,6 +1476,7 @@ async function crearRutaDesdeInput() {
 
     refrescarVisibilidadAvisos();
     ponerEstado(`Ruta creada hacia ${destino}. Avisos en ruta: ${avisosEnRuta.length}`);
+    notificarEstadoRutaCompartida("ruta_creada");
     anunciarNumeroAvisosRuta("Ruta creada");
   } catch (error) {
     ponerEstado(error.message || "No se pudo crear la ruta");
@@ -1286,6 +1518,7 @@ function empezarConduccion() {
   });
 
   ponerEstado("En conducción...");
+  notificarEstadoRutaCompartida("conduccion_iniciada");
   actualizarProgresoRutaGPS();
 }
 
@@ -1298,6 +1531,7 @@ function detenerConduccion(limpiarRutaTambien = true) {
   resetearPendientes();
 
   if (limpiarRutaTambien) limpiarRuta();
+  notificarEstadoRutaCompartida("conduccion_detenida");
 }
 
 // Comprueba si el coche se salió de la ruta y recalcula si hace falta.
@@ -1329,6 +1563,7 @@ async function comprobarSalidaDeRutaYRecalcular() {
 
       refrescarVisibilidadAvisos();
       ponerEstado(`Ruta recalculada. Avisos en ruta: ${avisosEnRuta.length}`);
+      notificarEstadoRutaCompartida("ruta_recalculada");
       anunciarNumeroAvisosRuta("Ruta recalculada");
       actualizarProgresoRutaGPS();
     } catch {
@@ -1636,7 +1871,7 @@ function iniciarFlujoBorrado() {
 // Interpreta el texto de voz según el estado actual del flujo.
 function gestionarComandoVoz(texto) {
   // Si la app está hablando o el micro está desactivado, no se procesa.
-  if (hablando || !privacidad.microfono) return;
+  if (hablando || !privacidad.microfono || vozPrincipalBloqueadaPorEmergencia) return;
 
   // "cancelar" funciona como comando global desde cualquier estado.
   if (texto === "cancelar" || texto.includes("cancelar")) {
@@ -1753,6 +1988,32 @@ socket.on("warning:deleted", ({ id }) => {
 
 
 
+// SINCRONIZACIÓN DE ESTADO CON EL MÓDULO DE FRENAZO
+
+// El módulo de frenazo avisa aquí cuando cambia su estado real.
+window.addEventListener("frenazo:estado", (evento) => {
+  const detalle = evento.detail || {};
+
+  if (typeof detalle.encendido === "boolean") {
+    privacidad.frenazoEncendido = detalle.encendido;
+  }
+
+  if (typeof detalle.contactoEmergenciaNombre === "string") {
+    privacidad.contactoEmergenciaNombre = detalle.contactoEmergenciaNombre;
+  }
+
+  if (typeof detalle.contactoEmergenciaEmail === "string") {
+    privacidad.contactoEmergenciaEmail = detalle.contactoEmergenciaEmail;
+  }
+
+  guardarPrivacidad();
+  aplicarPrivacidadEnUI();
+
+  if (detalle.mensaje) ponerEstado(detalle.mensaje);
+});
+
+
+
 // EVENTOS DE INTERFAZ
 
 
@@ -1809,6 +2070,18 @@ apagarSomnolenciaEl.addEventListener("click", () => {
   panelPrivacidadEl.style.display = "none";
 });
 
+// Encender detector de frenazo.
+encenderFrenazoEl.addEventListener("click", () => {
+  encenderDetectorFrenazo();
+  panelPrivacidadEl.style.display = "none";
+});
+
+// Apagar detector de frenazo.
+apagarFrenazoEl.addEventListener("click", () => {
+  apagarDetectorFrenazo();
+  panelPrivacidadEl.style.display = "none";
+});
+
 // Cerrar solo la ventana visual del detector.
 cerrarModalSomnolenciaEl.addEventListener("click", () => {
   modalSomnolenciaEl.classList.remove("abierto");
@@ -1822,7 +2095,7 @@ pantallaCompletaSomnolenciaEl.addEventListener("click", async () => {
 
     if (!document.fullscreenElement) {
       await ventana.requestFullscreen();
-      pantallaCompletaSomnolenciaEl.textContent = "🡼";
+      pantallaCompletaSomnolenciaEl.textContent = "⛶";
     } else {
       await document.exitFullscreen();
       pantallaCompletaSomnolenciaEl.textContent = "⛶";
@@ -1908,6 +2181,10 @@ function iniciarApp() {
   // Se carga configuración previa del usuario.
   cargarPrivacidad();
 
+  // El detector de frenazo siempre arranca apagado al entrar en la app.
+  privacidad.frenazoEncendido = false;
+  guardarPrivacidadParcial({ frenazoEncendido: false });
+
   // Se crea el mapa y sus capas base.
   iniciarMapa();
 
@@ -1924,7 +2201,9 @@ function iniciarApp() {
 
     // Si cámara y detector estaban activos, se vuelve a encender la somnolencia.
     if (privacidad.camara && privacidad.somnolenciaEncendida) {
-      window.dispatchEvent(new CustomEvent("somnolencia:activar"));
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("somnolencia:activar"));
+      }, 0);
     }
 
     // Mensaje inicial según el estado de permisos.
@@ -1935,13 +2214,39 @@ function iniciarApp() {
     } else {
       ponerEstado("Sistema listo. Escribe un destino para crear una ruta");
     }
+
   } else {
     // Si es la primera vez, se inicia el flujo inicial de permisos.
-    pedirPermisosInicialesSiHaceFalta();
+    prepararSolicitudPermisosIniciales();
   }
 
   actualizarBarraCompacta();
+  notificarEstadoRutaCompartida("inicio_app");
 }
+
+// API minima expuesta para la funcionalidad de compartir ruta.
+window.apiRutaCompartida = {
+  // Devuelve una instantánea del estado actual de la ruta principal.
+  obtenerEstadoActual: obtenerEstadoRutaCompartida,
+  // Permite reutilizar la voz principal de la app sin duplicar sintetizadores.
+  hablarTexto: hablar,
+  // Permite cortar solo la locucion actual y meter una alerta urgente.
+  interrumpirYHablarUrgente,
+  // Permite reanudar la cola normal despues de una interrupcion.
+  reanudarLocucionesNormales,
+  // Permite escribir un mensaje urgente visible.
+  ponerEstadoUrgente,
+  // Informa de si habia una locucion activa.
+  hayLocucionEnCurso,
+  // Pausa la voz normal cuando el frenazo necesita escuchar un si/no propio.
+  bloquearVozPrincipalPorEmergencia,
+  // Reactiva la voz normal cuando termina la emergencia.
+  desbloquearVozPrincipalPorEmergencia,
+  // Permite que una emergencia use el reconocimiento principal sin crear otro micro.
+  registrarGestorVozUrgente,
+  // Quita el gestor urgente cuando termina la emergencia.
+  limpiarGestorVozUrgente
+};
 
 // Arranca la app al cargar el script.
 iniciarApp();
