@@ -1890,8 +1890,29 @@ function gestionarComandoVoz(texto) {
 
     if (texto === "aviso" || texto.includes(" aviso")) {
       iniciarFlujoAviso();
+      return;
     }
-    return;
+    
+    // Comando: preguntar la hora actual
+    if (texto.includes("hora") || texto.includes("qué hora es") || texto.includes("que hora es")) {
+      const ahora = new Date();
+      const horas = ahora.getHours();
+      const minutos = ahora.getMinutes().toString().padStart(2, "0");
+      const minutosTexto = minutos === "00" ? "en punto" : `y ${minutos}`;
+      hablar(`Son las ${horas} ${minutosTexto}`);
+      programarEstadoConduccion();
+      return;
+    }
+
+    // Comando: finalizar ruta por voz
+    if (texto.includes("finalizar ruta") || texto.includes("terminar ruta") || texto.includes("parar ruta")) {
+      if (enConduccion) {
+        hablar("Finalizando la ruta", () => salirModoConduccion());
+      } else {
+        hablar("No hay ninguna ruta activa");
+      }
+      return;
+    }
   }
 
   // Estado esperando confirmación para crear aviso.
