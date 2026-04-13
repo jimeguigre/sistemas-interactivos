@@ -2092,6 +2092,7 @@ cerrarModalSomnolenciaEl.addEventListener("click", () => {
 pantallaCompletaSomnolenciaEl.addEventListener("click", async () => {
   try {
     const ventana = modalSomnolenciaEl.querySelector(".ventanaSomnolencia");
+    if (!ventana) return;
 
     if (!document.fullscreenElement) {
       await ventana.requestFullscreen();
@@ -2100,10 +2101,12 @@ pantallaCompletaSomnolenciaEl.addEventListener("click", async () => {
       await document.exitFullscreen();
       pantallaCompletaSomnolenciaEl.textContent = "⛶";
     }
-  } catch {}
+  } catch (error) {
+    console.warn("No se pudo activar el fullscreen del detector:", error);
+  }
 });
 
-// Si se sale de fullscreen por cualquier motivo, se restaura el icono.
+// Si se sale de fullscreen por cualquier motivo, se restaura el icono del detector.
 document.addEventListener("fullscreenchange", () => {
   if (!document.fullscreenElement) pantallaCompletaSomnolenciaEl.textContent = "⛶";
 });
