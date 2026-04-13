@@ -1400,8 +1400,8 @@ function construirRuta(inicioLatLng, destinoLatLng) {
       // Se ajusta el mapa automáticamente a la ruta.
       fitSelectedRoutes: true,
 
-      // Se muestra el panel textual del plugin.
-      show: true,
+      // Se oculta el panel textual del plugin.
+      show: false,
       collapsible: true,
 
       // Se oculta la línea por defecto del plugin porque usamos nuestras propias polilíneas.
