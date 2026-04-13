@@ -72,7 +72,7 @@ const DISTANCIA_SEGUNDO_AVISO_METROS = 50;
 // Distancia máxima hacia atrás permitida para encontrar un aviso borrable por voz.
 const DISTANCIA_MAX_BORRADO_ATRAS_METROS = 500;
 // Si el coche se separa más de esto de la ruta, se intenta recalcular.
-const UMBRAL_SALIDA_RUTA_METROS = 80;
+const UMBRAL_SALIDA_RUTA_METROS = 100;
 // Tiempo máximo de espera al pedir una posición GPS.
 const GPS_TIMEOUT_MS = 15000;
 // Antigüedad máxima permitida para posiciones cacheadas del GPS.
