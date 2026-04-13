@@ -228,6 +228,25 @@
       border-bottom: 1px solid var(--borde);
     }
 
+    /* Color negro para el texto de las instrucciones de ruta */
+  .leaflet-routing-container {
+      color: #111827;
+      background: white;
+  }
+
+  .leaflet-routing-alt {
+      color: #111827;
+  }
+
+  .leaflet-routing-alt h2,
+  .leaflet-routing-alt h3 {
+      color: #111827;
+  }
+
+  .leaflet-routing-alt td {
+      color: #111827;
+  }
+
     /* Resumen de sensores activos fuera del modo conducción */
     #estadoSensores {
       background: #111827;
@@ -252,8 +271,13 @@
       flex: 1;
     }
 
-    /* Se oculta el panel textual de Leaflet Routing porque no interesa mostrarlo */
-    .contenedor-routing-leaflet { display: none; }
+    /* Se mustra el panel textual de Leaflet Routing para ver las indicaciones */
+    .leaflet-routing-container {
+    color: #111827;
+    background: white;
+    max-height: 300px;
+    overflow-y: auto;
+}
 
     /* Utilidad general para ocultar elementos desde JS */
     .oculto { display: none !important; }
