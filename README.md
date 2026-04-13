@@ -6,12 +6,23 @@ npm install
 ```
 
 ## Ejecutar
+
+### PowerShell
 ```bash
 $env:SMTP_HOST="smtp.gmail.com"
 $env:SMTP_PORT="587"
 $env:SMTP_USER="appnavegacionavisos@gmail.com"
 $env:SMTP_PASS="aepfjaaxbfvejgeu"
 $env:SMTP_FROM="appnavegacionavisos@gmail.com"
+npm start
+```
+### CMD
+```bash
+set SMTP_HOST=smtp.gmail.com
+set SMTP_PORT=587
+set SMTP_USER=appnavegacionavisos@gmail.com
+set SMTP_PASS=aepfjaaxbfvejgeu
+set SMTP_FROM=appnavegacionavisos@gmail.com
 npm start
 ```
 
