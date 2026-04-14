@@ -1913,6 +1913,26 @@ function gestionarComandoVoz(texto) {
       }
       return;
     }
+
+    // Comando: Empezar ruta por voz (tanto si ya hay una ruta empezada cómo si no)
+    if (texto.includes("empezar ruta") || texto.includes("iniciar ruta") || texto.includes("comenzar ruta")) {
+        if (coordenadasRuta.length > 0) {
+            hablar("Iniciando modo conducción");
+            empezarConduccion(); // Llamamos a la función que ya creada
+        } else {
+            hablar("Primero necesitas establecer un destino");
+        }
+        return;
+    }
+
+    // Comando: cambiar destino de ruta por voz
+    if (texto.includes("cambiar ruta") || texto.includes("cambiar destino") || texto.includes("nueva ruta")) {
+        ponerEstadoApp("esperando_nuevo_destino");
+        ponerEstado("Di el nuevo destino...");
+        hablar("¿A dónde quieres ir ahora?");
+        return;
+    }
+
   }
 
   // Estado esperando confirmación para crear aviso.
@@ -1964,6 +1984,53 @@ function gestionarComandoVoz(texto) {
     }
 
     hablar("No te he entendido. Responde sí o no");
+  }
+
+  // Estado esperando el nuevo destino tras "cambiar ruta"
+  if (estadoApp === "esperando_nuevo_destino") {
+    const nuevoDestino = texto.trim();
+
+    if (nuevoDestino.length === 0) {
+        hablar("No he entendido el destino, inténtalo de nuevo");
+        return;
+    }
+
+    // Cancela si el usuario dice "cancelar" 
+    // (ya lo gestiona el bloque global de arriba, pero por si acaso se normaliza aquí también)
+    ponerEstadoApp("esperando_comando");
+    ponerEstado(`Recalculando hacia ${nuevoDestino}...`);
+    hablar(`Buscando ruta hacia ${nuevoDestino}`);
+
+    // Rellena el input visualmente
+    destinoInputEl.value = nuevoDestino;
+    textoDestinoActual = nuevoDestino;
+
+    // Detiene la conducción actual sin limpiar el mapa todavía
+    detenerConduccion(false);
+
+    geocodificarDestino(nuevoDestino)
+        .then(async (destinoLatLng) => {
+            latLngDestinoActual = destinoLatLng;
+            const inicio = L.latLng(posicionActual.lat, posicionActual.lng);
+            await construirRuta(inicio, destinoLatLng);
+
+            avisos.forEach(a => {
+                a.anunciado150 = false;
+                a.anunciado50 = false;
+            });
+
+            refrescarVisibilidadAvisos();
+            notificarEstadoRutaCompartida("ruta_cambiada");
+            hablar(`Ruta cambiada hacia ${nuevoDestino}. Hay ${avisosEnRuta.length} avisos. Di empezar ruta para continuar`);
+            ponerEstado(`Nueva ruta hacia ${nuevoDestino}`);
+        })
+        .catch(() => {
+            ponerEstadoApp("esperando_comando");
+            hablar(`No he encontrado ${nuevoDestino}. Inténtalo de nuevo`);
+            ponerEstado("Destino no encontrado");
+        });
+
+    return;
   }
 }
 
