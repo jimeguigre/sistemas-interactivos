@@ -96,8 +96,8 @@ function obtenerIpLocalPreferida() {
   // Se consultan todas las interfaces de red del equipo
   const interfaces = os.networkInterfaces();
 
-  // Se recorren todas las listas de interfaces
-  for (const listaInterfaces of Object.values(interfaces)) {
+  // Se recorren todas las listas de interfaces. Se incluye tambien el nombre para dar prioridades segun nombre (p. ej. Wi-Fi)
+  for (const [name, listaInterfaces] of Object.entries(interfaces)) {
     // Si una lista no existe, se ignora
     if (!listaInterfaces) continue;
 
@@ -107,8 +107,24 @@ function obtenerIpLocalPreferida() {
       // Asi evitamos loopback o direcciones que no valen para compartir en red local
       if (interfaz.family !== "IPv4" || interfaz.internal) continue;
 
-      // En cuanto aparece una valida, se devuelve
-      return interfaz.address;
+      // Preferencia por interfaces inalambricas
+
+      // Prioridad Wi-Fi
+      if (name.toLowerCase().includes('wi-fi')) {
+          return interfaz.address; 
+        }
+
+      // Si no, se busca red que tenga en el nombre wlan, inalambrica o wireless
+      if (name.toLowerCase().includes('wlan') || 
+            name.toLowerCase().includes('inalámbrica') || 
+            name.toLowerCase().includes('wireless')) {
+          return interfaz.address; 
+        }
+
+      // Puede que tome la primera interfaz, llamada "Ethernet Ethernet" y que sirve a menudo de adaptador para maquina virtual
+      // Se quiere evitar esta interfaz porque no es valida para la aplicacion
+      // Suele ser 192.168.56.1, asi que se descarta si empieza por 192.168.56, se ignora
+      if (!interfaz.address.startsWith('192.168.56.')) continue;
     }
   }
 
