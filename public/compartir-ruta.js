@@ -37,7 +37,10 @@ if (botonCompartirRutaPrincipalEl && panelCompartirRutaPrincipalEl && window.api
     if (!sesionRutaCompartida?.codigo) return false;
 
     // Se avisa al servidor de que esta sesion ha terminado
-    socketCompartirRuta.emit("ruta:finalizar", { codigo: sesionRutaCompartida.codigo });
+    socketCompartirRuta.emit("ruta:finalizar", {
+      codigo: sesionRutaCompartida.codigo,
+      conductorToken: sesionRutaCompartida.conductorToken
+    });
     // Se borra la referencia local a la sesion
     sesionRutaCompartida = null;
     // Se reinicia la marca que indicaba que la conduccion ya habia empezado
@@ -212,6 +215,8 @@ if (botonCompartirRutaPrincipalEl && panelCompartirRutaPrincipalEl && window.api
     socketCompartirRuta.emit("ruta:actualizar_comparticion", {
       // Codigo de la sesion que se esta actualizando
       codigo: sesionRutaCompartida.codigo,
+      // Token privado para recuperar la sesion si el socket se reconecta
+      conductorToken: sesionRutaCompartida.conductorToken,
       // Texto del destino actual
       destinoTexto: estado.textoDestinoActual,
       // Coordenadas del destino
@@ -229,6 +234,8 @@ if (botonCompartirRutaPrincipalEl && panelCompartirRutaPrincipalEl && window.api
       socketCompartirRuta.emit("ruta:iniciar", {
         // Codigo de la sesion
         codigo: sesionRutaCompartida.codigo,
+        // Token privado de la sesion del conductor
+        conductorToken: sesionRutaCompartida.conductorToken,
         // Posicion actual del conductor
         posicionActual: estado.posicionActual
       });
@@ -243,6 +250,8 @@ if (botonCompartirRutaPrincipalEl && panelCompartirRutaPrincipalEl && window.api
       socketCompartirRuta.emit("ruta:actualizar_posicion", {
         // Codigo de la sesion
         codigo: sesionRutaCompartida.codigo,
+        // Token privado de la sesion del conductor
+        conductorToken: sesionRutaCompartida.conductorToken,
         // Posicion actual del conductor
         posicionActual: estado.posicionActual
       });
@@ -273,7 +282,29 @@ if (botonCompartirRutaPrincipalEl && panelCompartirRutaPrincipalEl && window.api
       socketCompartirRuta.emit("ruta:iniciar", {
         // Codigo de la nueva sesion
         codigo: sesion.codigo,
+        // Token privado de la sesion del conductor
+        conductorToken: sesion.conductorToken,
         // Posicion actual del conductor
+        posicionActual: ultimoEstadoRutaPrincipal.posicionActual
+      });
+    }
+  });
+
+  // Si se corta la red un momento y Socket.IO reconecta, se recupera la sesion.
+  socketCompartirRuta.on("connect", () => {
+    if (!sesionRutaCompartida?.codigo || !sesionRutaCompartida?.conductorToken) return;
+
+    socketCompartirRuta.emit("ruta:recuperar_conductor", {
+      codigo: sesionRutaCompartida.codigo,
+      conductorToken: sesionRutaCompartida.conductorToken
+    });
+
+    ultimoEstadoRutaPrincipal = window.apiRutaCompartida.obtenerEstadoActual();
+
+    if (ultimoEstadoRutaPrincipal.enConduccion && inicioCompartidoYaEnviado) {
+      socketCompartirRuta.emit("ruta:iniciar", {
+        codigo: sesionRutaCompartida.codigo,
+        conductorToken: sesionRutaCompartida.conductorToken,
         posicionActual: ultimoEstadoRutaPrincipal.posicionActual
       });
     }

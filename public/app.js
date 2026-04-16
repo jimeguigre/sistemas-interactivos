@@ -72,7 +72,7 @@ const DISTANCIA_SEGUNDO_AVISO_METROS = 50;
 // Distancia máxima hacia atrás permitida para encontrar un aviso borrable por voz.
 const DISTANCIA_MAX_BORRADO_ATRAS_METROS = 500;
 // Si el coche se separa más de esto de la ruta, se intenta recalcular.
-const UMBRAL_SALIDA_RUTA_METROS = 100;
+const UMBRAL_SALIDA_RUTA_METROS = 80;
 // Tiempo máximo de espera al pedir una posición GPS.
 const GPS_TIMEOUT_MS = 15000;
 // Antigüedad máxima permitida para posiciones cacheadas del GPS.
@@ -140,6 +140,8 @@ let controlRuta = null;
 let coordenadasRuta = [];
 // Última posición GPS conocida del usuario.
 let posicionActual = null;
+// Rastro real de posiciones GPS recorridas durante la conduccion.
+let historialPosicionesConduccion = [];
 // Texto del destino actual, útil para UI y para recordar la navegación activa.
 let textoDestinoActual = "";
 // Coordenadas geográficas reales del destino actual.
@@ -1255,10 +1257,14 @@ function actualizarPosicionUsuario(lat, lng) {
 }
 
 // Borra visualmente las líneas de ruta.
-function resetearLineasRuta() {
+function resetearLineasRuta(limpiarRecorrido = true) {
   indiceMaxRecorrido = 0;
   lineaRutaPendiente.setLatLngs([]);
-  lineaRutaRecorrida.setLatLngs([]);
+
+  if (limpiarRecorrido) {
+    historialPosicionesConduccion = [];
+    lineaRutaRecorrida.setLatLngs([]);
+  }
 }
 
 // Elimina la ruta actual y limpia variables asociadas.
@@ -1326,7 +1332,49 @@ function distanciaPuntoASegmentoMetros(p, a, b) {
   return distanciaHaversineMetros(p, proj);
 }
 
-// Calcula la distancia mínima entre un punto y toda la ruta.
+// Busca el tramo de ruta mas cercano y el punto exacto sobre ese tramo.
+function buscarProgresoRutaMasCercano(point) {
+  if (coordenadasRuta.length === 1) {
+    return {
+      indiceSegmento: 0,
+      puntoProyectado: coordenadasRuta[0],
+      distancia: distanciaHaversineMetros(point, coordenadasRuta[0])
+    };
+  }
+
+  let mejor = {
+    indiceSegmento: 0,
+    puntoProyectado: coordenadasRuta[0],
+    distancia: Infinity
+  };
+
+  for (let i = 0; i < coordenadasRuta.length - 1; i++) {
+    const a = coordenadasRuta[i];
+    const b = coordenadasRuta[i + 1];
+    const dx = b.lng - a.lng;
+    const dy = b.lat - a.lat;
+    let t = 0;
+
+    if (dx !== 0 || dy !== 0) {
+      t = ((point.lng - a.lng) * dx + (point.lat - a.lat) * dy) / (dx * dx + dy * dy);
+      t = Math.max(0, Math.min(1, t));
+    }
+
+    const puntoProyectado = {
+      lat: a.lat + t * dy,
+      lng: a.lng + t * dx
+    };
+    const distancia = distanciaHaversineMetros(point, puntoProyectado);
+
+    if (distancia < mejor.distancia) {
+      mejor = { indiceSegmento: i, puntoProyectado, distancia };
+    }
+  }
+
+  return mejor;
+}
+
+// Calcula la distancia minima entre un punto y toda la ruta.
 function distanciaARutaMetros(point, path) {
   if (path.length < 2) return Infinity;
 
@@ -1339,6 +1387,18 @@ function distanciaARutaMetros(point, path) {
   }
 
   return min;
+}
+
+// Guarda el rastro GPS real para pintar por donde ha ido el conductor.
+function registrarPosicionRecorrida() {
+  if (!posicionActual || !enConduccion) return;
+
+  const punto = { lat: posicionActual.lat, lng: posicionActual.lng };
+  const ultimo = historialPosicionesConduccion[historialPosicionesConduccion.length - 1];
+
+  if (!ultimo || distanciaHaversineMetros(ultimo, punto) >= 3) {
+    historialPosicionesConduccion.push(punto);
+  }
 }
 
 // Devuelve el índice del punto de ruta más cercano a una posición dada.
@@ -1361,21 +1421,19 @@ function buscarIndiceRutaMasCercano(point) {
 function actualizarProgresoRutaGPS() {
   if (!coordenadasRuta.length || !posicionActual) return;
 
-  const puntoActual = L.latLng(posicionActual.lat, posicionActual.lng);
-  const indiceMasCercano = buscarIndiceRutaMasCercano(puntoActual);
+  registrarPosicionRecorrida();
+
+  const progresoActual = buscarProgresoRutaMasCercano(posicionActual);
 
   // Solo se avanza hacia delante en la ruta; nunca se reduce el progreso ya hecho.
-  if (indiceMasCercano > indiceMaxRecorrido) indiceMaxRecorrido = indiceMasCercano;
+  if (progresoActual.indiceSegmento > indiceMaxRecorrido) {
+    indiceMaxRecorrido = progresoActual.indiceSegmento;
+  }
 
-  // Parte recorrida: desde el inicio hasta el último punto alcanzado.
-  const recorrida = coordenadasRuta
-    .slice(0, indiceMaxRecorrido + 1)
-    .map(p => [p.lat, p.lng]);
+  // Parte recorrida: rastro GPS real, para que la naranja siga por donde vas.
+  const recorrida = historialPosicionesConduccion.map(p => [p.lat, p.lng]);
 
-  // Se añade la posición actual para que la línea llegue exactamente al coche.
-  recorrida.push([posicionActual.lat, posicionActual.lng]);
-
-  // Parte pendiente: desde la posición actual hasta el resto de la ruta.
+  // Parte pendiente: desde la posicion actual hasta el resto de la ruta.
   const pendiente = [[posicionActual.lat, posicionActual.lng]]
     .concat(coordenadasRuta.slice(indiceMaxRecorrido + 1).map(p => [p.lat, p.lng]));
 
@@ -1402,7 +1460,7 @@ async function geocodificarDestino(query) {
 }
 
 // Construye una ruta entre origen y destino usando Leaflet Routing Machine + OSRM.
-function construirRuta(inicioLatLng, destinoLatLng) {
+function construirRuta(inicioLatLng, destinoLatLng, opciones = {}) {
   return new Promise((resolve, reject) => {
     // Si ya había un control de ruta previo, se elimina para no duplicar rutas.
     if (controlRuta) {
@@ -1410,7 +1468,9 @@ function construirRuta(inicioLatLng, destinoLatLng) {
       controlRuta = null;
     }
 
-    resetearLineasRuta();
+    const conservarRecorrido = Boolean(opciones.conservarRecorrido);
+
+    resetearLineasRuta(!conservarRecorrido);
     coordenadasRuta = [];
     indiceMaxRecorrido = 0;
 
@@ -1450,7 +1510,7 @@ function construirRuta(inicioLatLng, destinoLatLng) {
 
       // Inicialmente toda la ruta es pendiente.
       lineaRutaPendiente.setLatLngs(coordenadasRuta.map(p => [p.lat, p.lng]));
-      lineaRutaRecorrida.setLatLngs([]);
+      if (!conservarRecorrido) lineaRutaRecorrida.setLatLngs([]);
 
       // Se actualizan avisos visibles para la nueva ruta.
       refrescarVisibilidadAvisos();
@@ -1539,6 +1599,7 @@ function empezarConduccion() {
   limpiarTemporizadorConduccion();
   enConduccion = true;
   seguirVehiculo = true;
+  historialPosicionesConduccion = [{ lat: posicionActual.lat, lng: posicionActual.lng }];
   activarBloqueoPantallaConduccion();
   actualizarBarraCompacta();
   cerrarPaneles();
@@ -1586,7 +1647,7 @@ async function comprobarSalidaDeRutaYRecalcular() {
       const inicio = L.latLng(posicionActual.lat, posicionActual.lng);
 
       // Se reconstruye una nueva ruta desde la posición actual hasta el destino guardado.
-      await construirRuta(inicio, latLngDestinoActual);
+      await construirRuta(inicio, latLngDestinoActual, { conservarRecorrido: true });
 
       // Tras recalcular, los avisos vuelven a ser anunciables.
       avisos.forEach(a => {

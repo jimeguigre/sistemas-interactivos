@@ -90,6 +90,8 @@ const warnings = new Map();
 // Sesiones de compartir ruta guardadas en memoria
 // Cada sesion representa un enlace de seguimiento
 const sesionesCompartidas = new Map();
+// Tiempo de margen para cortes breves de red antes de cerrar una ruta compartida.
+const GRACIA_DESCONEXION_CONDUCTOR_MS = 45 * 1000;
 
 // Busca una IP local IPv4 para construir el enlace compartido
 function obtenerIpLocalPreferida() {
@@ -174,12 +176,12 @@ function sanearPosicion(posicion) {
 }
 
 // Prepara una copia simple de la sesion para mandarla al cliente
-function resumirSesion(sesion) {
+function resumirSesion(sesion, incluirPrivado = false) {
   // Si no hay sesion, se devuelve null
   if (!sesion) return null;
 
   // Solo se exponen los datos que necesita el cliente
-  return {
+  const resumen = {
     codigo: sesion.codigo,
     url: sesion.url,
     destinoTexto: sesion.destinoTexto,
@@ -190,6 +192,33 @@ function resumirSesion(sesion) {
     finalizada: sesion.finalizada,
     creadaEn: sesion.creadaEn
   };
+
+  // El token privado solo se entrega al conductor.
+  if (incluirPrivado) {
+    resumen.conductorToken = sesion.conductorToken;
+  }
+
+  return resumen;
+}
+
+// Devuelve true si este socket puede gestionar la sesion como conductor.
+function esConductorAutorizado(socket, sesion, payload = {}) {
+  if (!sesion || sesion.finalizada) return false;
+  if (sesion.conductorId === socket.id) return true;
+
+  const conductorToken = String(payload?.conductorToken || "");
+  if (!conductorToken || conductorToken !== sesion.conductorToken) return false;
+
+  // Si el movil reconecto con otro socket, se reasocia la sesion.
+  if (sesion.cierrePorDesconexion) {
+    clearTimeout(sesion.cierrePorDesconexion);
+    sesion.cierrePorDesconexion = null;
+  }
+
+  sesion.conductorId = socket.id;
+  socket.data.codigoSesionPropia = sesion.codigo;
+  socket.join(obtenerNombreSala(sesion.codigo));
+  return true;
 }
 
 // Marca una sesion como terminada y avisa a todos los conectados a ella
@@ -199,6 +228,11 @@ function finalizarSesionCompartida(codigo, motivo = "Ruta finalizada") {
 
   // Si no existe, no hay nada que hacer
   if (!sesion) return;
+
+  if (sesion.cierrePorDesconexion) {
+    clearTimeout(sesion.cierrePorDesconexion);
+    sesion.cierrePorDesconexion = null;
+  }
 
   // Se cambia el estado para impedir nuevas actualizaciones
   sesion.activa = false;
@@ -364,6 +398,8 @@ io.on("connection", (socket) => {
       url,
       // Guardamos el socket del conductor para validar ownership mas tarde
       conductorId: socket.id,
+      // Token privado para recuperar la sesion si el socket se reconecta
+      conductorToken: randomUUID(),
       destinoTexto,
       destinoLatLng,
       coordenadasRuta,
@@ -372,7 +408,8 @@ io.on("connection", (socket) => {
       // La sesion existe, pero no se considera activa hasta que el conductor empiece a conducir
       activa: false,
       finalizada: false,
-      creadaEn: Date.now()
+      creadaEn: Date.now(),
+      cierrePorDesconexion: null
     };
 
     // Se guarda la sesion en memoria
@@ -384,7 +421,20 @@ io.on("connection", (socket) => {
     // Asi recibe los mismos eventos de esa sala si hace falta
     socket.join(obtenerNombreSala(codigo));
     // Se devuelve al conductor la sesion creada
-    socket.emit("ruta:comparticion_creada", resumirSesion(sesion));
+    socket.emit("ruta:comparticion_creada", resumirSesion(sesion, true));
+  });
+
+  // Recuperar una sesion propia despues de una reconexion breve del movil
+  socket.on("ruta:recuperar_conductor", (payload = {}) => {
+    const codigo = String(payload?.codigo || "").trim().toUpperCase();
+    const sesion = sesionesCompartidas.get(codigo);
+
+    if (!esConductorAutorizado(socket, sesion, payload)) {
+      socket.emit("ruta:error", { mensaje: "No se pudo recuperar la sesion compartida" });
+      return;
+    }
+
+    socket.emit("ruta:estado", resumirSesion(sesion, true));
   });
 
   // Actualizar una sesion compartida cuando cambie la ruta
@@ -395,7 +445,7 @@ io.on("connection", (socket) => {
 
     // Solo el conductor duenyo de la sesion puede modificarla
     // Esto evita que otro cliente altere una sesion ajena
-    if (!sesion || sesion.conductorId !== socket.id) {
+    if (!esConductorAutorizado(socket, sesion, payload)) {
       socket.emit("ruta:error", { mensaje: "No se encontro la sesion compartida que intentabas actualizar" });
       return;
     }
@@ -431,7 +481,7 @@ io.on("connection", (socket) => {
     const sesion = sesionesCompartidas.get(codigo);
 
     // Solo el conductor propietario puede activarla
-    if (!sesion || sesion.conductorId !== socket.id) {
+    if (!esConductorAutorizado(socket, sesion, payload)) {
       socket.emit("ruta:error", { mensaje: "No se pudo iniciar la sesion compartida" });
       return;
     }
@@ -458,7 +508,7 @@ io.on("connection", (socket) => {
 
     // Si la sesion no existe, no es suya o ya termino, no se actualiza nada
     // Esto evita mover rutas cerradas o ajenas
-    if (!sesion || sesion.conductorId !== socket.id || sesion.finalizada) return;
+    if (!esConductorAutorizado(socket, sesion, payload)) return;
 
     // Se limpia la nueva posicion
     const posicionActual = sanearPosicion(payload?.posicionActual);
@@ -478,7 +528,7 @@ io.on("connection", (socket) => {
     const sesion = sesionesCompartidas.get(codigo);
 
     // Solo el conductor propietario puede cerrarla
-    if (!sesion || sesion.conductorId !== socket.id) {
+    if (!esConductorAutorizado(socket, sesion, payload)) {
       socket.emit("ruta:error", { mensaje: "No se pudo finalizar la sesion compartida" });
       return;
     }
@@ -552,10 +602,22 @@ io.on("connection", (socket) => {
     // Se deja un rastro util en consola
     console.log(`Cliente desconectado: ${socket.id}`);
 
-    // Si quien se desconecta era un conductor con sesion abierta, se cierra su sesion
+    // Si quien se desconecta era un conductor, se espera por si vuelve enseguida.
     if (socket.data.codigoSesionPropia && sesionesCompartidas.has(socket.data.codigoSesionPropia)) {
-      // Asi el espectador recibe el cierre aunque el conductor no pulse salir
-      finalizarSesionCompartida(socket.data.codigoSesionPropia, "El conductor se desconecto");
+      const codigo = socket.data.codigoSesionPropia;
+      const sesion = sesionesCompartidas.get(codigo);
+
+      if (sesion && sesion.conductorId === socket.id && !sesion.finalizada) {
+        if (sesion.cierrePorDesconexion) clearTimeout(sesion.cierrePorDesconexion);
+
+        sesion.cierrePorDesconexion = setTimeout(() => {
+          const sesionActual = sesionesCompartidas.get(codigo);
+
+          if (sesionActual && sesionActual.conductorId === socket.id && !sesionActual.finalizada) {
+            finalizarSesionCompartida(codigo, "El conductor se desconecto");
+          }
+        }, GRACIA_DESCONEXION_CONDUCTOR_MS);
+      }
     }
 
     // Si era un espectador, no hace falta limpiar nada extra
