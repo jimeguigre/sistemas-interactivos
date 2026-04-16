@@ -196,6 +196,8 @@ let locucionEnCurso = false;
 let vozPrincipalBloqueadaPorEmergencia = false;
 // Gestor temporal que tiene prioridad sobre comandos normales como "aviso".
 let gestorVozUrgente = null;
+// Bloqueo de pantalla activo durante la conduccion, si el navegador lo permite.
+let bloqueoPantallaConduccion = null;
 
 
 
@@ -247,6 +249,35 @@ function resetearPendientes() {
 
   // Se vuelve al estado neutral esperando un nuevo comando.
   ponerEstadoApp("esperando_comando");
+}
+
+// Intenta mantener la pantalla encendida mientras la ruta esta activa.
+async function activarBloqueoPantallaConduccion() {
+  if (!("wakeLock" in navigator)) return;
+  if (bloqueoPantallaConduccion || document.visibilityState !== "visible") return;
+
+  try {
+    bloqueoPantallaConduccion = await navigator.wakeLock.request("screen");
+    bloqueoPantallaConduccion.addEventListener("release", () => {
+      bloqueoPantallaConduccion = null;
+    });
+  } catch (error) {
+    console.warn("No se pudo bloquear la pantalla durante la conduccion:", error);
+  }
+}
+
+// Libera el bloqueo de pantalla cuando termina la conduccion.
+async function liberarBloqueoPantallaConduccion() {
+  const bloqueoActual = bloqueoPantallaConduccion;
+  bloqueoPantallaConduccion = null;
+
+  if (!bloqueoActual) return;
+
+  try {
+    await bloqueoActual.release();
+  } catch (error) {
+    console.warn("No se pudo liberar el bloqueo de pantalla:", error);
+  }
 }
 
 // Devuelve una copia segura del estado relevante para compartir la ruta.
@@ -1508,6 +1539,7 @@ function empezarConduccion() {
   limpiarTemporizadorConduccion();
   enConduccion = true;
   seguirVehiculo = true;
+  activarBloqueoPantallaConduccion();
   actualizarBarraCompacta();
   cerrarPaneles();
 
@@ -1527,6 +1559,7 @@ function detenerConduccion(limpiarRutaTambien = true) {
   limpiarTemporizadorConduccion();
   enConduccion = false;
   seguirVehiculo = false;
+  liberarBloqueoPantallaConduccion();
   actualizarBarraCompacta();
   resetearPendientes();
 
@@ -2236,6 +2269,13 @@ usarCamaraEl.addEventListener("change", async () => {
 botonCrearRutaEl.addEventListener("click", crearRutaDesdeInput);
 botonEmpezarRutaEl.addEventListener("click", empezarConduccion);
 botonSalirConduccionEl.addEventListener("click", salirModoConduccion);
+
+// Algunos navegadores liberan el bloqueo al ocultar la pagina; al volver, se pide otra vez.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && enConduccion) {
+    activarBloqueoPantallaConduccion();
+  }
+});
 
 // Abrir o cerrar el panel de avisos propios.
 botonMisAvisosEl.addEventListener("click", () => {

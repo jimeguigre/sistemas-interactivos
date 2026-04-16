@@ -145,6 +145,8 @@ La app tambien permite compartir una ruta con otra persona dentro de la misma re
 - El enlace compartido deja de servir cuando termina la conduccion
 - Al terminar la conduccion, el espectador ve un aviso y ya no puede enviar mensajes ni interactuar con esa sesion
 - La vista del espectador se abre desde `/seguimiento/CODIGO`
+- Durante la conduccion la app intenta mantener la pantalla encendida para evitar que el navegador suspenda el GPS o la conexion
+- Si el usuario bloquea manualmente el movil o el navegador no soporta mantener la pantalla encendida, el sistema operativo puede pausar la app igualmente
 
 ## Notas sobre permisos y guardado
 
