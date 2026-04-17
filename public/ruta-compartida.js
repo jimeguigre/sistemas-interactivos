@@ -149,10 +149,62 @@ function pintarDestinoRutaCompartida(lat, lng) {
   marcadorDestinoRutaCompartida.setLatLng(punto);
 }
 
+// Calcula la distancia geográfica aproximada entre dos puntos.
+function distanciaHaversineMetros(a, b) {
+  const R = 6371000;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) *
+    Math.cos(toRad(b.lat)) *
+    Math.sin(dLng / 2) ** 2;
+
+  return 2 * R * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+}
+
+// Devuelve la parte de ruta que queda desde la posicion actual del conductor.
+function obtenerRutaPendienteDesdeConductor() {
+  if (!coordenadasRutaActual.length) return [];
+  if (!posicionActualConductor) return coordenadasRutaActual;
+
+  let mejorIndice = 0;
+  let mejorPunto = coordenadasRutaActual[0];
+  let mejorDistancia = Infinity;
+
+  for (let i = 0; i < coordenadasRutaActual.length - 1; i++) {
+    const a = coordenadasRutaActual[i];
+    const b = coordenadasRutaActual[i + 1];
+    const dx = b.lng - a.lng;
+    const dy = b.lat - a.lat;
+    let t = 0;
+
+    if (dx !== 0 || dy !== 0) {
+      t = ((posicionActualConductor.lng - a.lng) * dx + (posicionActualConductor.lat - a.lat) * dy) / (dx * dx + dy * dy);
+      t = Math.max(0, Math.min(1, t));
+    }
+
+    const puntoProyectado = {
+      lat: a.lat + t * dy,
+      lng: a.lng + t * dx
+    };
+    const distancia = distanciaHaversineMetros(posicionActualConductor, puntoProyectado);
+
+    if (distancia < mejorDistancia) {
+      mejorIndice = i;
+      mejorPunto = puntoProyectado;
+      mejorDistancia = distancia;
+    }
+  }
+
+  return [posicionActualConductor, mejorPunto].concat(coordenadasRutaActual.slice(mejorIndice + 1));
+}
+
 // Dibuja la ruta actual en el mapa
 function pintarRutaActualEnMapa() {
   // Se pasa la geometria al formato que espera Leaflet
-  const puntos = coordenadasRutaActual.map((punto) => [punto.lat, punto.lng]);
+  const puntos = obtenerRutaPendienteDesdeConductor().map((punto) => [punto.lat, punto.lng]);
 
   // Se actualiza la linea visible del mapa
   lineaRutaCompartida.setLatLngs(puntos);
@@ -208,6 +260,8 @@ function aplicarEstadoRecibidoDeSesion(sesion) {
     posicionActualConductor = sesion.posicionActual;
     // Se repinta el marcador del conductor
     pintarPosicionConductor(posicionActualConductor.lat, posicionActualConductor.lng);
+    // Se recorta la ruta para mostrar solo lo pendiente desde el marcador
+    pintarRutaActualEnMapa();
   }
 
   // Si la ruta ya ha terminado, se bloquea la pantalla

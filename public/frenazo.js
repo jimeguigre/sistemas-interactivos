@@ -138,23 +138,35 @@ function normalizarTextoFrenazo(texto) {
 
 // Reconoce respuestas que significan que el usuario esta bien.
 function esRespuestaBienFrenazo(texto) {
-  return texto === "si"
-    || texto === "estoy bien"
-    || texto === "vale"
-    || texto === "ok"
-    || texto.includes("estoy bien")
-    || texto.includes("todo bien")
-    || texto.includes("me encuentro bien");
+  const limpio = normalizarTextoFrenazo(texto);
+
+  return limpio === "si"
+    || limpio.startsWith("si ")
+    || limpio.includes("estoy bien")
+    || limpio.includes("todo bien")
+    || limpio.includes("me encuentro bien")
+    || limpio.includes("vale")
+    || limpio.includes("ok")
+    || limpio.includes("tranquilo");
 }
 
 // Reconoce respuestas que significan que hay que avisar al contacto.
 function esRespuestaAyudaFrenazo(texto) {
-  return texto === "no"
-    || texto === "ayuda"
-    || texto.includes("necesito ayuda")
-    || texto.includes("no estoy bien")
-    || texto.includes("llama")
-    || texto.includes("avisar");
+  const limpio = normalizarTextoFrenazo(texto);
+
+  return limpio === "no"
+    || limpio.startsWith("no ")
+    || limpio === "ayuda"
+    || limpio.includes("ayuda")
+    || limpio.includes("necesito ayuda")
+    || limpio.includes("no estoy bien")
+    || limpio.includes("no me encuentro bien")
+    || limpio.includes("me encuentro mal")
+    || limpio.includes("estoy mal")
+    || limpio.includes("me duele")
+    || limpio.includes("llama")
+    || limpio.includes("avisar")
+    || limpio.includes("avisa");
 }
 
 // Calcula la fuerza frontal del coche segun la orientacion prevista del movil.
@@ -405,8 +417,40 @@ function analizarMovimientoFrenazo(event) {
 }
 
 // Activa la escucha real del detector una vez confirmado el contacto.
-function activarEscuchaDetectorFrenazo() {
+async function activarEscuchaDetectorFrenazo() {
   if (detectorFrenazoActivo) return;
+
+  if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
+    try {
+      const permiso = await DeviceMotionEvent.requestPermission();
+
+      if (permiso !== "granted") {
+        guardarPrivacidadFrenazo({ frenazoEncendido: false });
+        notificarEstadoFrenazo({
+          encendido: false,
+          mensaje: "Permiso de movimiento denegado"
+        });
+
+        if (window.apiRutaCompartida?.ponerEstadoUrgente) {
+          window.apiRutaCompartida.ponerEstadoUrgente("Permiso de movimiento denegado");
+        }
+
+        return;
+      }
+    } catch {
+      guardarPrivacidadFrenazo({ frenazoEncendido: false });
+      notificarEstadoFrenazo({
+        encendido: false,
+        mensaje: "No se pudo pedir permiso de movimiento"
+      });
+
+      if (window.apiRutaCompartida?.ponerEstadoUrgente) {
+        window.apiRutaCompartida.ponerEstadoUrgente("No se pudo pedir permiso de movimiento");
+      }
+
+      return;
+    }
+  }
 
   detectorFrenazoActivo = true;
   ultimoMomentoLectura = 0;
