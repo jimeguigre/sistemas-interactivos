@@ -10,16 +10,19 @@ const socketFrenazo = window.socketPrincipal || io();
 // Umbral para considerar un posible frenazo.
 // Caso esperado: movil en horizontal/apaisado, vertical en el soporte,
 // con la pantalla y la camara frontal mirando hacia el conductor.
-const UMBRAL_FRENAZO_BRUSCO = 12;
+const UMBRAL_FRENAZO_BRUSCO = 4;
+
+// Velocidad minima para aceptar un frenazo real.
+const VELOCIDAD_MINIMA_FRENAZO_KMH = 6;
 
 // Tiempo maximo para que el usuario responda si esta bien.
 const TIEMPO_ESPERA_RESPUESTA_MS = 20000;
 
 // Tiempo minimo entre dos detecciones para no disparar varias alertas seguidas.
-const COOLDOWN_FRENAZO_MS = 45000;
+const COOLDOWN_FRENAZO_MS = 10000;
 
 // Tiempo minimo entre dos analisis del sensor para no saturar.
-const THROTTLE_SENSOR_MS = 250;
+const THROTTLE_SENSOR_MS = 50;
 
 
 // REFERENCIAS AL MODAL DE CONTACTO
@@ -37,6 +40,16 @@ const errorContactoEmergenciaEl = document.getElementById("errorContactoEmergenc
 const botonConfirmarContactoEmergenciaEl = document.getElementById("botonConfirmarContactoEmergencia");
 // Botón para salir del popup sin activar el detector.
 const botonCancelarContactoEmergenciaEl = document.getElementById("botonCancelarContactoEmergencia");
+// Indicador central con el nivel actual del detector.
+const indicadorNivelFrenazoEl = document.getElementById("indicadorNivelFrenazo");
+// Texto numerico del nivel actual.
+const valorNivelFrenazoEl = document.getElementById("valorNivelFrenazo");
+// Texto con umbral y velocidad minima.
+const detalleNivelFrenazoEl = document.getElementById("detalleNivelFrenazo");
+// Texto con la velocidad actual.
+const velocidadNivelFrenazoEl = document.getElementById("velocidadNivelFrenazo");
+// Barra visual del nivel actual.
+const rellenoNivelFrenazoEl = document.getElementById("rellenoNivelFrenazo");
 
 
 // ESTADO INTERNO DEL DETECTOR
@@ -44,6 +57,9 @@ const botonCancelarContactoEmergenciaEl = document.getElementById("botonCancelar
 
 // Indica si el detector esta activado realmente.
 let detectorFrenazoActivo = false;
+
+// Indica si el visor central del nivel esta visible.
+let visorNivelFrenazoVisible = false;
 
 // Marca temporal del ultimo frenazo aceptado.
 let ultimoMomentoFrenazo = 0;
@@ -127,6 +143,14 @@ function obtenerEstadoRutaPrincipal() {
   return window.apiRutaCompartida?.obtenerEstadoActual?.() || null;
 }
 
+// Devuelve la velocidad actual estimada por la app principal.
+function obtenerVelocidadActualKmh() {
+  const estadoRuta = obtenerEstadoRutaPrincipal();
+  const velocidad = Number(estadoRuta?.posicionActual?.speedKmh);
+
+  return Number.isFinite(velocidad) ? Math.max(0, velocidad) : 0;
+}
+
 // Normaliza texto para comparar respuestas de voz.
 function normalizarTextoFrenazo(texto) {
   return String(texto || "")
@@ -187,6 +211,49 @@ function obtenerIntensidadFrontal(event) {
 // Escribe un mensaje de error en el popup del contacto.
 function ponerErrorContactoEmergencia(texto) {
   errorContactoEmergenciaEl.textContent = texto || "";
+}
+
+// Muestra u oculta el indicador central de nivel.
+function mostrarIndicadorNivelFrenazo(mostrar) {
+  if (!indicadorNivelFrenazoEl) return;
+  visorNivelFrenazoVisible = Boolean(mostrar);
+  indicadorNivelFrenazoEl.classList.toggle("visible", visorNivelFrenazoVisible);
+}
+
+// Alterna la ventana central del nivel del frenazo.
+function alternarIndicadorNivelFrenazo() {
+  if (!detectorFrenazoActivo) {
+    mostrarIndicadorNivelFrenazo(false);
+    return;
+  }
+
+  mostrarIndicadorNivelFrenazo(!visorNivelFrenazoVisible);
+}
+
+// Actualiza el valor central con la intensidad mas reciente.
+function actualizarIndicadorNivelFrenazo(intensidad = 0, velocidadKmh = obtenerVelocidadActualKmh()) {
+  const nivel = Number.isFinite(Number(intensidad)) ? Number(intensidad) : 0;
+  const velocidad = Number.isFinite(Number(velocidadKmh)) ? Number(velocidadKmh) : 0;
+  const porcentaje = Math.max(0, Math.min(100, (nivel / UMBRAL_FRENAZO_BRUSCO) * 100));
+
+  if (valorNivelFrenazoEl) {
+    valorNivelFrenazoEl.textContent = nivel.toFixed(2);
+  }
+
+  if (detalleNivelFrenazoEl) {
+    detalleNivelFrenazoEl.textContent = `Umbral ${UMBRAL_FRENAZO_BRUSCO.toFixed(2)} | Min ${VELOCIDAD_MINIMA_FRENAZO_KMH.toFixed(0)} km/h`;
+  }
+
+  if (velocidadNivelFrenazoEl) {
+    velocidadNivelFrenazoEl.textContent = `Velocidad ${velocidad.toFixed(1)} km/h`;
+  }
+
+  if (rellenoNivelFrenazoEl) {
+    rellenoNivelFrenazoEl.style.width = `${porcentaje}%`;
+    rellenoNivelFrenazoEl.style.background = nivel >= UMBRAL_FRENAZO_BRUSCO
+      ? "#dc2626"
+      : (porcentaje >= 70 ? "#f59e0b" : "#0f766e");
+  }
 }
 
 // Abre el popup de contacto con los datos guardados.
@@ -400,6 +467,8 @@ function analizarMovimientoFrenazo(event) {
 
   const intensidadFrontal = obtenerIntensidadFrontal(event);
   if (intensidadFrontal === null) return;
+  const velocidadKmh = obtenerVelocidadActualKmh();
+  actualizarIndicadorNivelFrenazo(intensidadFrontal, velocidadKmh);
 
   if (!primeraLecturaMovimientoRecibida) {
     primeraLecturaMovimientoRecibida = true;
@@ -411,7 +480,7 @@ function analizarMovimientoFrenazo(event) {
 
   // Con el movil apaisado en soporte y mirando al conductor,
   // el frenazo se interpreta como un pico frontal en Z.
-  if (intensidadFrontal >= UMBRAL_FRENAZO_BRUSCO) {
+  if (velocidadKmh >= VELOCIDAD_MINIMA_FRENAZO_KMH && intensidadFrontal >= UMBRAL_FRENAZO_BRUSCO) {
     dispararAlertaFrenazo(intensidadFrontal);
   }
 }
@@ -455,6 +524,7 @@ async function activarEscuchaDetectorFrenazo() {
   detectorFrenazoActivo = true;
   ultimoMomentoLectura = 0;
   primeraLecturaMovimientoRecibida = false;
+  actualizarIndicadorNivelFrenazo(0);
   window.addEventListener("devicemotion", analizarMovimientoFrenazo);
 
   if (window.apiRutaCompartida?.ponerEstadoUrgente) {
@@ -515,6 +585,8 @@ function detenerDetectorFrenazo() {
   detectorFrenazoActivo = false;
   ultimoMomentoLectura = 0;
   primeraLecturaMovimientoRecibida = false;
+  actualizarIndicadorNivelFrenazo(0);
+  mostrarIndicadorNivelFrenazo(false);
   window.removeEventListener("devicemotion", analizarMovimientoFrenazo);
   cerrarFlujoEmergencia();
   cerrarModalContactoEmergencia();
@@ -604,4 +676,9 @@ window.addEventListener("frenazo:activar", () => {
 // app.js lanza este evento cuando el usuario apaga el detector.
 window.addEventListener("frenazo:detener", () => {
   detenerDetectorFrenazo();
+});
+
+// app.js lanza este evento cuando el usuario quiere ver/ocultar el nivel.
+window.addEventListener("frenazo:alternar_visor", () => {
+  alternarIndicadorNivelFrenazo();
 });
