@@ -43,6 +43,8 @@ const encenderSomnolenciaEl = document.getElementById("encenderSomnolencia");
 const apagarSomnolenciaEl = document.getElementById("apagarSomnolencia");
 // Botón que muestra los avisos creados por este cliente.
 const botonMisAvisosEl = document.getElementById("botonMisAvisos");
+// Boton que muestra u oculta el visor del detector de frenazo.
+const verFrenazoEl = document.getElementById("verFrenazo");
 // Botón que enciende el detector de frenazo.
 const encenderFrenazoEl = document.getElementById("encenderFrenazo");
 // Botón que apaga el detector de frenazo.
@@ -140,6 +142,10 @@ let controlRuta = null;
 let coordenadasRuta = [];
 // Última posición GPS conocida del usuario.
 let posicionActual = null;
+// Velocidad estimada actual en km/h, usada tambien por el detector de frenazo.
+let velocidadActualKmh = 0;
+// Ultima posicion usada para estimar velocidad cuando el navegador no la da.
+let ultimaPosicionParaVelocidad = null;
 // Rastro real de posiciones GPS recorridas durante la conduccion.
 let historialPosicionesConduccion = [];
 // Texto del destino actual, útil para UI y para recordar la navegación activa.
@@ -1143,9 +1149,29 @@ function iniciarWatchGPS() {
       const lat = position.coords.latitude;
       const lng = position.coords.longitude;
       const accuracy = position.coords.accuracy;
+      const speed = Number(position.coords.speed);
+      const momento = Number(position.timestamp || Date.now());
+      let velocidadKmh = Number.isFinite(speed) && speed >= 0
+        ? speed * 3.6
+        : velocidadActualKmh;
+
+      if ((!Number.isFinite(speed) || speed < 0) && ultimaPosicionParaVelocidad) {
+        const segundos = (momento - ultimaPosicionParaVelocidad.momento) / 1000;
+
+        if (segundos > 0.5) {
+          const distancia = distanciaHaversineMetros(
+            { lat: ultimaPosicionParaVelocidad.lat, lng: ultimaPosicionParaVelocidad.lng },
+            { lat, lng }
+          );
+          velocidadKmh = (distancia / segundos) * 3.6;
+        }
+      }
+
+      velocidadActualKmh = Number.isFinite(velocidadKmh) ? velocidadKmh : 0;
+      ultimaPosicionParaVelocidad = { lat, lng, momento };
 
       // Se guarda la posición actual completa.
-      posicionActual = { lat, lng, accuracy };
+      posicionActual = { lat, lng, accuracy, speedKmh: velocidadActualKmh };
       notificarEstadoRutaCompartida("gps");
 
       // Se actualiza el marcador del usuario en el mapa.
@@ -2249,6 +2275,18 @@ encenderSomnolenciaEl.addEventListener("click", () => {
 // Apagar detector.
 apagarSomnolenciaEl.addEventListener("click", () => {
   apagarDetectorSomnolencia();
+  panelPrivacidadEl.style.display = "none";
+});
+
+// Ver u ocultar detector de frenazo.
+verFrenazoEl.addEventListener("click", () => {
+  if (!privacidad.frenazoEncendido) {
+    ponerEstado("Primero enciende el detector de frenazo");
+    panelPrivacidadEl.style.display = "none";
+    return;
+  }
+
+  window.dispatchEvent(new CustomEvent("frenazo:alternar_visor"));
   panelPrivacidadEl.style.display = "none";
 });
 
