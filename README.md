@@ -26,10 +26,6 @@ set SMTP_FROM=appnavegacionavisos@gmail.com
 npm start
 ```
 
-Servidor:
-```text
-https://localhost:3000
-```
 
 ## Importante
 El certificado incluido es de prueba. El navegador te mostrara un aviso de seguridad.
@@ -40,7 +36,7 @@ Para probar en local:
 
 ## Probar en el movil
 1. Conecta movil y ordenador a la misma Wi-Fi
-2. Averigua la IP local del ordenador
+2. Averigua la IP local del ordenador (se mostrara en el terminal)
 3. Abre en el movil:
 ```text
 https://IP_DEL_ORDENADOR:3000
